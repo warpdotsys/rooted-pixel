@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       ksu-version:
-        description: KernelSU 版本（留空或 latest 则自动检测）
+        description: KernelSU 版本（留空则自动检测最新版）
         required: false
         default: ''
       ksu-kmi:
-        description: KernelSU KMI（留空则从 boot.img 自动检测）
+        description: KernelSU KMI（留空则自动检测）
         required: false
         default: ''
       force-build:
@@ -30,82 +30,66 @@ permissions:
   contents: write
 
 jobs:
-  build-tokay-ksu:
-    name: "tokay (Pixel 9) — KernelSU"
+  build-tokay:
+    name: "tokay (Pixel 9)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: tokay
-      magisk-preinit-device: sda10
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-caiman-ksu:
-    name: "caiman (Pixel 9 Pro) — KernelSU"
+  build-caiman:
+    name: "caiman (Pixel 9 Pro)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: caiman
-      magisk-preinit-device: sda10
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-komodo-ksu:
-    name: "komodo (Pixel 9 Pro XL) — KernelSU"
+  build-komodo:
+    name: "komodo (Pixel 9 Pro XL)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: komodo
-      magisk-preinit-device: sda10
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-shiba-ksu:
-    name: "shiba (Pixel 8) — KernelSU"
+  build-shiba:
+    name: "shiba (Pixel 8)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: shiba
-      magisk-preinit-device: sda10
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-husky-ksu:
-    name: "husky (Pixel 8 Pro) — KernelSU"
+  build-husky:
+    name: "husky (Pixel 8 Pro)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: husky
-      magisk-preinit-device: sda10
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-panther-ksu:
-    name: "panther (Pixel 7) — KernelSU"
+  build-panther:
+    name: "panther (Pixel 7)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: panther
-      magisk-preinit-device: metadata
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-cheetah-ksu:
-    name: "cheetah (Pixel 7 Pro) — KernelSU"
+  build-cheetah:
+    name: "cheetah (Pixel 7 Pro)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: cheetah
-      magisk-preinit-device: metadata
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit
 
-  build-oriole-ksu:
-    name: "oriole (Pixel 6) — KernelSU"
+  build-oriole:
+    name: "oriole (Pixel 6)"
     uses: ./.github/workflows/release-single.yaml
     with:
       device-id: oriole
-      magisk-preinit-device: metadata
-      ksu-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-version) || 'latest' }}
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
     secrets: inherit

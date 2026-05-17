@@ -16,12 +16,6 @@ on:
     inputs:
       device-id:
         type: string
-      magisk-preinit-device:
-        type: string
-        default: ''
-      ksu-version:
-        type: string
-        default: ''
       ksu-kmi:
         type: string
         default: ''
@@ -31,16 +25,14 @@ on:
       device-id:
         description: 设备 ID
         required: true
-      magisk-preinit-device:
-        description: Magisk preinit 设备分区（留空则跳过 Magisk）
-        required: false
       ksu-version:
-        description: KernelSU 版本（留空或 'latest' 则自动检测最新版）
+        description: KernelSU 版本（留空则自动检测最新版）
         required: false
-        default: 'latest'
+        default: ''
       ksu-kmi:
         description: KernelSU KMI（留空则自动检测）
         required: false
+        default: ''
       skip-rootless:
         description: 跳过构建 rootless OTA
         type: boolean
@@ -97,10 +89,7 @@ jobs:
       - name: 设置输入参数
         run: |
           echo "DEVICE_ID=$(echo '${{ github.event.inputs.device-id || inputs.device-id || 'tokay' }}' | xargs)" >> $GITHUB_ENV
-          RAW_MAGISK='${{ github.event.inputs.magisk-preinit-device || inputs.magisk-preinit-device }}'
-          [ -z "$RAW_MAGISK" ] && RAW_MAGISK=''
-          echo "MAGISK_PREINIT_DEVICE=$RAW_MAGISK" >> $GITHUB_ENV
-          KSU_VERSION='${{ github.event.inputs.ksu-version || inputs.ksu-version || '' }}'
+          KSU_VERSION='${{ github.event.inputs.ksu-version || '' }}'
           echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
           KSU_KMI='${{ github.event.inputs.ksu-kmi || inputs.ksu-kmi || '' }}'
           echo "KSU_KMI=$KSU_KMI" >> $GITHUB_ENV

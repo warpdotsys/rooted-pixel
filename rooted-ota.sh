@@ -54,7 +54,7 @@ SKIP_MODULES=${SKIP_MODULES:-'false'}
 UPLOAD_TEST_OTA=${UPLOAD_TEST_OTA:-false}
 
 # KernelSU 支持
-KSU_VERSION=${KSU_VERSION:-''}       # 设为版本号或 'latest'
+KSU_VERSION=${KSU_VERSION:-latest}   # 默认启用最新版 KernelSU
 KSU_KMI=${KSU_KMI:-''}               # 留空则自动检测
 KSU_ALLOW_SHELL=${KSU_ALLOW_SHELL:-'true'}
 KERNELPATCH_VERSION=${KERNELPATCH_VERSION:-'0.13.1'}
@@ -214,6 +214,19 @@ sys.stdout.write(ver)
     printRed "请通过 OTA_VERSION 环境变量指定版本，如 OTA_VERSION=AP4A.250205.002"
     printRed "或在 devices.json 中配置该设备的版本信息。"
     exit 1
+  fi
+
+  # --------------- Magisk preinit 自动检测 ---------------
+  if [[ -z "$MAGISK_PREINIT_DEVICE" ]] && [ -f "$DEVICES_JSON" ]; then
+    MAGISK_PREINIT_DEVICE=$(python3 -c "
+import json, sys
+with open('$DEVICES_JSON') as f:
+    devices = json.load(f)
+sys.stdout.write(devices.get('$DEVICE_ID', {}).get('magisk_preinit', '') or '')
+" 2>/dev/null) || MAGISK_PREINIT_DEVICE=""
+    if [[ -n "$MAGISK_PREINIT_DEVICE" ]]; then
+      printGreen "自动检测到 Magisk preinit: $MAGISK_PREINIT_DEVICE"
+    fi
   fi
 
   # --------------- 构造 OTA URL ---------------
@@ -545,11 +558,24 @@ function injectKsuIntoOta() {
 
   local kmi="${KSU_KMI}"
   if [ -z "$kmi" ]; then
-    print "正在从 boot.img 自动检测 KMI..."
-    kmi=$(detectKsuKmi "$workDir/extracted/boot.img")
-    kmi=$(echo "$kmi" | tr -d '[:space:]')
+    # 尝试从 devices.json 获取 KMI
+    if [ -f "$DEVICES_JSON" ]; then
+      kmi=$(python3 -c "
+import json, sys
+with open('$DEVICES_JSON') as f:
+    devices = json.load(f)
+sys.stdout.write(devices.get('$DEVICE_ID', {}).get('ksu_kmi', '') or '')
+" 2>/dev/null) || kmi=""
+    fi
+    if [[ -n "$kmi" ]]; then
+      printGreen "从 devices.json 获取 KMI: $kmi"
+    else
+      print "正在从 boot.img 自动检测 KMI..."
+      kmi=$(detectKsuKmi "$workDir/extracted/boot.img")
+      kmi=$(echo "$kmi" | tr -d '[:space:]')
+    fi
     if [ -z "$kmi" ] || [ "$kmi" = "unknown" ]; then
-      printYellow "KMI 自动检测失败，使用设备默认值"
+      printYellow "KMI 检测失败，使用设备默认值"
       case "$DEVICE_ID" in
         shiba|husky|akita)  kmi="android14-6.1" ;;  # Pixel 8 系列
         tokay|caiman|komodo) kmi="android15-6.6" ;; # Pixel 9 系列
@@ -559,7 +585,7 @@ function injectKsuIntoOta() {
       esac
       print "默认 KMI: $kmi"
     else
-      printGreen "自动检测到 KMI: $kmi"
+      printGreen "KMI: $kmi"
     fi
   else
     print "使用已配置的 KMI: $kmi"
