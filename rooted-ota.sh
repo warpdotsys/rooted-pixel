@@ -170,7 +170,41 @@ function createAssetSuffix() {
 }
 
 # ============================================================
-# 版本检测：从 devices.json 或环境变量获取 Pixel OTA URL
+# 直接抓取 Google OTA 页面（参照 auto_ota_manual_patch.sh）
+# ============================================================
+
+function fetchPixelOtaUrl() {
+  local device="$1"
+  local version_filter="${2:-}"
+  local page_file=".tmp/ota_page.html"
+  local ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+  curl --fail -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
+    -A "$ua" \
+    -o "$page_file" \
+    "https://developers.google.com/android/ota?hl=zh-cn" 2>/dev/null || {
+    rm -f "$page_file"
+    return 1
+  }
+
+  local url=""
+  if [ -n "$version_filter" ]; then
+    # 精确匹配指定版本（Google 页面使用小写 build ID）
+    local filter_lc
+    filter_lc=$(echo "$version_filter" | tr '[:upper:]' '[:lower:]')
+    url=$(grep -o "https://dl.google.com/dl/android/aosp/${device}-ota-${filter_lc}-[a-f0-9]*\.zip" "$page_file" 2>/dev/null | tail -1)
+  fi
+  if [ -z "$url" ]; then
+    # 匹配该设备的最新 OTA
+    url=$(grep -o "https://dl.google.com/dl/android/aosp/${device}-ota-[a-zA-Z0-9.\-]*\.zip" "$page_file" 2>/dev/null | tail -1)
+  fi
+
+  rm -f "$page_file"
+  [ -n "$url" ] && echo "$url" || return 1
+}
+
+# ============================================================
+# 版本检测：从 Google OTA 页面或 devices.json 获取 Pixel OTA URL
 # ============================================================
 
 function findLatestVersion() {
@@ -183,54 +217,57 @@ function findLatestVersion() {
   fi
   print "Magisk 版本: $MAGISK_VERSION"
 
-  # --------------- Pixel OTA 版本检测 ---------------
-  # 策略：
-  # 1. 如果 OTA_VERSION != 'latest'，直接使用
-  # 2. 否则尝试从 devices.json 获取 latest
-  # 3. 如果 devices.json 不存在或没有该设备，尝试构造 factory image URL
-  #    并推导 OTA URL
+  # --------------- Pixel OTA URL 获取 ---------------
+  # 策略（参照 auto_ota_manual_patch.sh）：
+  # 1. 直接抓取 Google OTA 页面（curl + TOS cookie）获取完整 OTA URL（含 SHA）
+  # 2. 若失败，回退到 devices.json 构造 URL
+  # 3. 若 devices.json 也无 SHA，尝试 factory image
 
+  local scraped_url=""
   if [[ "$OTA_VERSION" == 'latest' ]]; then
-    # 尝试从 devices.json 读取最新版本
-    if [ -f "$DEVICES_JSON" ]; then
-      OTA_VERSION=$(python3 -c "
+    scraped_url=$(fetchPixelOtaUrl "$DEVICE_ID") || true
+  else
+    scraped_url=$(fetchPixelOtaUrl "$DEVICE_ID" "$OTA_VERSION") || true
+  fi
+
+  if [ -n "$scraped_url" ]; then
+    OTA_URL="$scraped_url"
+    OTA_TARGET=$(basename "$scraped_url" .zip)
+    # 从 target 中提取 OTA_VERSION: {device}-ota-{version}-{sha}
+    OTA_VERSION=$(echo "$OTA_TARGET" | sed 's/^[a-z0-9]*-ota-//; s/-[a-f0-9]\{8\}$//')
+    printGreen "通过 Google OTA 页面获取到: $OTA_TARGET"
+  else
+    printYellow "直接抓取 Google OTA 页面失败，回退到 devices.json..."
+
+    # --------------- OTA 版本检测 ---------------
+    if [[ "$OTA_VERSION" == 'latest' ]]; then
+      if [ -f "$DEVICES_JSON" ]; then
+        OTA_VERSION=$(python3 -c "
 import json, sys
 with open('$DEVICES_JSON') as f:
     devices = json.load(f)
 device = devices.get('$DEVICE_ID', {})
 ver = device.get('latest_build', '')
 if not ver:
-    # 取 builds 列表中最新的
     builds = device.get('builds', [])
     if builds:
         ver = builds[-1].get('build_id', '')
 sys.stdout.write(ver)
 " 2>/dev/null) || OTA_VERSION=""
+      fi
     fi
-  fi
 
-  if [[ -z "$OTA_VERSION" ]]; then
-    printRed "无法确定 $DEVICE_ID 的 OTA 版本。"
-    printRed "请通过 OTA_VERSION 环境变量指定版本，如 OTA_VERSION=AP4A.250205.002"
-    printRed "或在 devices.json 中配置该设备的版本信息。"
-    exit 1
-  fi
+    if [[ -z "$OTA_VERSION" ]]; then
+      printRed "无法确定 $DEVICE_ID 的 OTA 版本。"
+      printRed "请通过 OTA_VERSION 环境变量指定版本，如 OTA_VERSION=AP4A.250205.002"
+      printRed "或在 devices.json 中配置该设备的版本信息。"
+      exit 1
+    fi
 
-  # --------------- Magisk preinit 自动检测 ---------------
-  # 如果未设置，将在 downloadAndroidDependencies 下载完 OTA 后从 boot.img 检测
-  # 见 patchOTAs 中的检测逻辑
-  if [[ -z "$MAGISK_PREINIT_DEVICE" ]]; then
-    print "MAGISK_PREINIT_DEVICE 未设置，将在 OTA 下载后从 boot.img 自动检测"
-  fi
-
-  # --------------- 构造 OTA URL ---------------
-  # Pixel OTA URL 格式：
-  # https://dl.google.com/dl/android/aosp/{device}-ota-{build_id}-{sha}.zip
-  # SHA 有 8 位，需要从 devices.json 获取
-
-  local ota_sha=""
-  if [ -f "$DEVICES_JSON" ]; then
-    ota_sha=$(python3 -c "
+    # --------------- 构造 OTA URL ---------------
+    local ota_sha=""
+    if [ -f "$DEVICES_JSON" ]; then
+      ota_sha=$(python3 -c "
 import json
 with open('$DEVICES_JSON') as f:
     devices = json.load(f)
@@ -242,20 +279,24 @@ for b in builds:
         break
 sys.stdout.write(sha)
 " 2>/dev/null) || ota_sha=""
+    fi
+
+    if [[ -n "$ota_sha" ]]; then
+      OTA_TARGET="${DEVICE_ID}-ota-${OTA_VERSION}-${ota_sha}"
+      OTA_URL="${OTA_BASE_URL}/${OTA_TARGET}.zip"
+    else
+      printYellow "devices.json 中未找到 $DEVICE_ID-$OTA_VERSION 的 SHA，尝试 factory image..."
+      OTA_TARGET="${DEVICE_ID}-factory-${OTA_VERSION}"
+      OTA_URL="${OTA_BASE_URL}/${OTA_TARGET}.zip"
+      printYellow "警告：将使用 factory image 而非 OTA zip。部分功能可能受限。"
+    fi
   fi
 
-  if [[ -n "$ota_sha" ]]; then
-    OTA_TARGET="${DEVICE_ID}-ota-${OTA_VERSION}-${ota_sha}"
-    OTA_URL="${OTA_BASE_URL}/${OTA_TARGET}.zip"
-  else
-    # Fallback：使用 factory image URL（无 hash，可预测）
-    # 但 avbroot 需要 OTA zip，所以这只是用于下载 factory image
-    # 再从 factory image 中提取 boot.img
-    printYellow "未找到 $DEVICE_ID-$OTA_VERSION 的 OTA SHA，尝试使用 factory image..."
-    OTA_TARGET="${DEVICE_ID}-factory-${OTA_VERSION}"
-    OTA_URL="${OTA_BASE_URL}/${OTA_TARGET}.zip"
-    printYellow "警告：将使用 factory image 而非 OTA zip。部分功能可能受限。"
+  # --------------- Magisk preinit 自动检测 ---------------
+  if [[ -z "$MAGISK_PREINIT_DEVICE" ]]; then
+    print "MAGISK_PREINIT_DEVICE 未设置，将在 OTA 下载后从 boot.img 自动检测"
   fi
+
   print "设备: $DEVICE_ID"
   print "版本: $OTA_VERSION"
   print "目标: $OTA_TARGET"

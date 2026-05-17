@@ -16,11 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: 安装 Playwright
-        run: |
-          pip install playwright beautifulsoup4 lxml
-          playwright install chromium
-
       - name: 抓取最新的 Pixel OTA 链接
         run: |
           python scripts/fetch_latest_ota.py --output devices.json.new
