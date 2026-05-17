@@ -179,10 +179,12 @@ function fetchPixelOtaUrl() {
   local page_file=".tmp/ota_page.html"
   local ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-  print "正在抓取 Google OTA 页面（device=$device, version=${version_filter:-latest}）..."
-  
-  # 不设 --fail：即使 Google 返回非 200（如 302/401）也下载页面内容，
-  # 页面上如果有错误信息，grep 找不到 URL 自然会返回空。
+  # 确保临时目录存在（CI 中工具缓存为空时 .tmp 可能未创建）
+  mkdir -p .tmp
+
+  echo >&2 "$(date '+%Y-%m-%d %H:%M:%S'): 正在抓取 Google OTA 页面（device=$device, version=${version_filter:-latest}）..."
+
+  # 不设 --fail：即使 Google 返回非 200（如 302/401）也下载页面内容。
   # --retry 增加网络容错性。
   curl -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
     -A "$ua" \
@@ -191,13 +193,13 @@ function fetchPixelOtaUrl() {
     "https://developers.google.com/android/ota?hl=zh-cn" 2>/dev/null || {
     local rc=$?
     rm -f "$page_file"
-    printYellow "curl 请求失败（exit code=$rc）"
+    echo >&2 "$(date '+%Y-%m-%d %H:%M:%S'): curl 请求失败（exit code=$rc）"
     return 1
   }
 
   local page_size
   page_size=$(stat -c%s "$page_file" 2>/dev/null || echo 0)
-  print "OTA 页面已下载（${page_size} 字节）"
+  echo >&2 "$(date '+%Y-%m-%d %H:%M:%S'): OTA 页面已下载（${page_size} 字节）"
 
   local url=""
   if [ -n "$version_filter" ]; then
@@ -212,11 +214,11 @@ function fetchPixelOtaUrl() {
   rm -f "$page_file"
 
   if [ -n "$url" ]; then
-    printGreen "从 Google OTA 页面找到 URL: $(basename "$url")"
+    echo >&2 "$(date '+%Y-%m-%d %H:%M:%S'): 从 Google OTA 页面找到 URL: $(basename "$url")"
     echo "$url"
     return 0
   else
-    printYellow "在页面中未找到 ${device} 的 OTA 链接（可能被反爬或页面结构变更）"
+    echo >&2 "$(date '+%Y-%m-%d %H:%M:%S'): 在页面中未找到 ${device} 的 OTA 链接（可能被反爬或页面结构变更）"
     return 1
   fi
 }
