@@ -1,0 +1,146 @@
+name: 发布单设备 OTA
+
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - rooted-ota.sh
+  pull_request:
+    types: [synchronize, opened, reopened]
+    paths:
+      - rooted-ota.sh
+      - .github/workflows/*.yaml
+
+  workflow_call:
+    inputs:
+      device-id:
+        type: string
+      magisk-preinit-device:
+        type: string
+        default: ''
+      ksu-version:
+        type: string
+        default: ''
+      ksu-kmi:
+        type: string
+        default: ''
+
+  workflow_dispatch:
+    inputs:
+      device-id:
+        description: 设备 ID
+        required: true
+      magisk-preinit-device:
+        description: Magisk preinit 设备分区（留空则跳过 Magisk）
+        required: false
+      ksu-version:
+        description: KernelSU 版本（留空或 'latest' 则自动检测最新版）
+        required: false
+        default: 'latest'
+      ksu-kmi:
+        description: KernelSU KMI（留空则自动检测）
+        required: false
+      skip-rootless:
+        description: 跳过构建 rootless OTA
+        type: boolean
+        required: false
+      skip-rooted:
+        description: 跳过构建 rooted OTA
+        type: boolean
+        required: false
+      upload-test-ota:
+        description: 将 OTA 上传到 test 目录
+        required: false
+        type: boolean
+      force-build:
+        description: 强制重新构建（即使已存在）
+        required: false
+        type: boolean
+      force-ota-server-upload:
+        description: 强制上传到 OTA 服务器
+        required: false
+        type: boolean
+      skip-release:
+        description: 跳过发布（仅构建）
+        required: false
+        type: boolean
+      ota-version:
+        description: Pixel Build ID（如 AP4A.250205.002，留空自动检测）
+        required: false
+      magisk-version:
+        description: Magisk 版本
+        required: false
+
+jobs:
+  build-device:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 恢复工具缓存
+        id: cache-tools-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: .tool-cache
+          key: tool-cache-${{ runner.os }}-v1
+
+      - name: 预拉取 Docker 镜像
+        run: |
+          docker pull python:$(grep PYTHON_VERSION rooted-ota.sh | head -1 | cut -d: -f3 | tr -d " #'") 2>&1 | tail -1
+          echo "Docker 镜像已缓存"
+
+      - name: 设置输入参数
+        run: |
+          echo "DEVICE_ID=$(echo '${{ github.event.inputs.device-id || inputs.device-id || 'tokay' }}' | xargs)" >> $GITHUB_ENV
+          RAW_MAGISK='${{ github.event.inputs.magisk-preinit-device || inputs.magisk-preinit-device }}'
+          [ -z "$RAW_MAGISK" ] && RAW_MAGISK=''
+          echo "MAGISK_PREINIT_DEVICE=$RAW_MAGISK" >> $GITHUB_ENV
+          KSU_VERSION='${{ github.event.inputs.ksu-version || inputs.ksu-version || '' }}'
+          echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+          KSU_KMI='${{ github.event.inputs.ksu-kmi || inputs.ksu-kmi || '' }}'
+          echo "KSU_KMI=$KSU_KMI" >> $GITHUB_ENV
+          OTA_VERSION='${{ github.event.inputs.ota-version || inputs.ota-version || 'latest' }}'
+          echo "OTA_VERSION=$OTA_VERSION" >> $GITHUB_ENV
+          MAGISK_VERSION='${{ github.event.inputs.magisk-version || inputs.magisk-version || 'auto' }}'
+          echo "MAGISK_VERSION=$MAGISK_VERSION" >> $GITHUB_ENV
+          echo "SKIP_ROOTLESS=${{ github.event.inputs.skip-rootless || inputs.skip-rootless || 'false' }}" >> $GITHUB_ENV
+          echo "UPLOAD_TEST_OTA=${{ github.event.inputs.upload-test-ota || inputs.upload-test-ota || 'false' }}" >> $GITHUB_ENV
+          echo "FORCE_BUILD=${{ github.event.inputs.force-build || inputs.force-build || 'false' }}" >> $GITHUB_ENV
+          echo "FORCE_OTA_SERVER_UPLOAD=${{ github.event.inputs.force-ota-server-upload || inputs.force-ota-server-upload || 'false' }}" >> $GITHUB_ENV
+
+      - name: 加载密钥
+        run: |
+          echo "PASSPHRASE_AVB=${{ secrets.PASSPHRASE_AVB }}" >> $GITHUB_ENV
+          echo "PASSPHRASE_OTA=${{ secrets.PASSPHRASE_OTA }}" >> $GITHUB_ENV
+          echo "KEY_AVB_BASE64=${{ secrets.KEY_AVB_BASE64 }}" >> $GITHUB_ENV
+          echo "KEY_OTA_BASE64=${{ secrets.KEY_OTA_BASE64 }}" >> $GITHUB_ENV
+          echo "CERT_OTA_BASE64=${{ secrets.CERT_OTA_BASE64 }}" >> $GITHUB_ENV
+
+      - name: 构建 OTA（rootless + KernelSU + Magisk）
+        run: |
+          source rooted-ota.sh
+          export GITHUB_REPO=${{ github.repository }}
+          if [[ -n "${PASSPHRASE_AVB}" ]] && [[ -n "${PASSPHRASE_OTA}" ]] && [[ -n "${KEY_AVB_BASE64}" ]] && [[ -n "${KEY_OTA_BASE64}" ]] && [[ -n "${CERT_OTA_BASE64}" ]]; then
+            createAndReleaseRootedOta
+          else
+            createRootedOta
+          fi
+
+      - name: 保存工具缓存
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: .tool-cache
+          key: tool-cache-${{ runner.os }}-v1
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DEVICE_ID }}-ota-artifacts
+          path: .tmp/*.zip
+          if-no-files-found: error

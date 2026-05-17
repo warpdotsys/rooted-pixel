@@ -1,0 +1,39 @@
+name: 更新 Pixel 设备 OTA 数据库
+
+on:
+  schedule:
+    # 每周更新一次，UTC 周一 06:00
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-devices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 安装 Playwright
+        run: |
+          pip install playwright beautifulsoup4 lxml
+          playwright install chromium
+
+      - name: 抓取最新的 Pixel OTA 链接
+        run: |
+          python scripts/fetch_latest_ota.py --output devices.json.new
+          if [ -f devices.json.new ]; then
+            mv devices.json.new devices.json
+          fi
+
+      - name: 创建 PR（如果有变更）
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: 更新 Pixel 设备 OTA 数据库"
+          title: "chore: 更新 Pixel 设备 OTA 数据库"
+          body: |
+            自动更新 devices.json 中的 Pixel OTA 信息和版本号。
+          branch: update-devices
+          delete-branch: true

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^rooted-ota\\.sh$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) packageName=(?<packageName>.*?) versioning=(?<versioning>.*?)\\n.*?MAGISK_VERSION=\\${MAGISK_VERSION:-auto}     # renovate: datasource=(?<datasource2>.*?) packageName=(?<packageName2>.*?) versioning=(?<versioning2>.*?)"
+      ],
+      "depNameTemplate": "topjohnwu/Magisk",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    }
+  ],
+  "schedule": ["before 9am on Monday"]
+}

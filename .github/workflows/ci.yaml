@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+    paths-ignore:
+      - '*.md'
+  pull_request:
+    types: [synchronize, opened, reopened]
+
+jobs:
+  validate-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck rooted-ota.sh
+
+      - name: 验证 devices.json 格式
+        run: |
+          python3 -c "
+import json
+with open('devices.json') as f:
+    data = json.load(f)
+device_count = len(data.get('devices', {}))
+print(f'✓ devices.json 有效，包含 {device_count} 个设备')
+for name, info in data['devices'].items():
+    builds = info.get('builds', [])
+    print(f'  - {name} ({info.get(\"name\", \"\")}): {len(builds)} 个构建')
+" 2>&1
+
+      - name: ShellCheck（严格模式）
+        run: shellcheck --severity=warning rooted-ota.sh

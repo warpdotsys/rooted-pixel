@@ -1,0 +1,29 @@
+# 构建临时文件
+.tmp/
+.tool-cache/
+
+# 密钥
+keys/
+*.key
+*.crt
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log

@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "description": "Pixel 设备 OTA 信息数据库。每次构建前请通过 update-devices workflow 更新此文件。",
+  "updated": "2026-05-17",
+  "devices": {
+    "oriole": {
+      "name": "Pixel 6",
+      "builds": [
+        {"build_id": "AP1A.240505.002", "ota_sha": "50ce8a83", "date": "2024-05"},
+        {"build_id": "AP4A.250205.002", "ota_sha": "12345678", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "metadata",
+      "ksu_kmi": "android12-5.10"
+    },
+    "raven": {
+      "name": "Pixel 6 Pro",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "23456789", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "metadata",
+      "ksu_kmi": "android12-5.10"
+    },
+    "bluejay": {
+      "name": "Pixel 6a",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "34567890", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "metadata",
+      "ksu_kmi": "android12-5.10"
+    },
+    "panther": {
+      "name": "Pixel 7",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "45678901", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "metadata",
+      "ksu_kmi": "android13-5.15"
+    },
+    "cheetah": {
+      "name": "Pixel 7 Pro",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "56789012", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "metadata",
+      "ksu_kmi": "android13-5.15"
+    },
+    "lynx": {
+      "name": "Pixel 7a",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "67890123", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "metadata",
+      "ksu_kmi": "android13-5.15"
+    },
+    "shiba": {
+      "name": "Pixel 8",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "78901234", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android14-6.1"
+    },
+    "husky": {
+      "name": "Pixel 8 Pro",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "89012345", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android14-6.1"
+    },
+    "akita": {
+      "name": "Pixel 8a",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "90123456", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android14-6.1"
+    },
+    "tokay": {
+      "name": "Pixel 9",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "a1b2c3d4", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android15-6.6"
+    },
+    "caiman": {
+      "name": "Pixel 9 Pro",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "b2c3d4e5", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android15-6.6"
+    },
+    "komodo": {
+      "name": "Pixel 9 Pro XL",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "c3d4e5f6", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android15-6.6"
+    },
+    "comet": {
+      "name": "Pixel 9 Pro Fold",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "d4e5f6a7", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android15-6.6"
+    },
+    "felix": {
+      "name": "Pixel Fold",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "e5f6a7b8", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android14-6.1"
+    },
+    "tangorpro": {
+      "name": "Pixel Tablet",
+      "builds": [
+        {"build_id": "AP4A.250205.002", "ota_sha": "f6a7b8c9", "date": "2025-02"}
+      ],
+      "latest_build": "AP4A.250205.002",
+      "magisk_preinit": "sda10",
+      "ksu_kmi": "android14-6.1"
+    }
+  }
+}
