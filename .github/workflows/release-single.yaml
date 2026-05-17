@@ -88,7 +88,7 @@ jobs:
 
       - name: 设置输入参数
         run: |
-          echo "DEVICE_ID=$(echo '${{ github.event.inputs.device-id || inputs.device-id || 'tokay' }}' | xargs)" >> $GITHUB_ENV
+          echo "DEVICE_ID=$(echo '${{ github.event.inputs.device-id || inputs.device-id || 'shiba' }}' | xargs)" >> $GITHUB_ENV
           KSU_VERSION='${{ github.event.inputs.ksu-version || '' }}'
           echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
           KSU_KMI='${{ github.event.inputs.ksu-kmi || inputs.ksu-kmi || '' }}'
