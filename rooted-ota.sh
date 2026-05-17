@@ -7,7 +7,7 @@
 # 基于 rooted-graphene (https://github.com/warpdotsys/rooted-graphene) 修改
 # Copyright 2024-2026 参见 LICENSE
 
-readonly PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 依赖：git、jq、curl、docker、python3、unzip
 
@@ -179,28 +179,46 @@ function fetchPixelOtaUrl() {
   local page_file=".tmp/ota_page.html"
   local ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-  curl --fail -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
+  print "正在抓取 Google OTA 页面（device=$device, version=${version_filter:-latest}）..."
+  
+  # 不设 --fail：即使 Google 返回非 200（如 302/401）也下载页面内容，
+  # 页面上如果有错误信息，grep 找不到 URL 自然会返回空。
+  # --retry 增加网络容错性。
+  curl -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
     -A "$ua" \
+    --retry 3 --retry-delay 2 \
     -o "$page_file" \
     "https://developers.google.com/android/ota?hl=zh-cn" 2>/dev/null || {
+    local rc=$?
     rm -f "$page_file"
+    printYellow "curl 请求失败（exit code=$rc）"
     return 1
   }
 
+  local page_size
+  page_size=$(stat -c%s "$page_file" 2>/dev/null || echo 0)
+  print "OTA 页面已下载（${page_size} 字节）"
+
   local url=""
   if [ -n "$version_filter" ]; then
-    # 精确匹配指定版本（Google 页面使用小写 build ID）
     local filter_lc
     filter_lc=$(echo "$version_filter" | tr '[:upper:]' '[:lower:]')
     url=$(grep -o "https://dl.google.com/dl/android/aosp/${device}-ota-${filter_lc}-[a-f0-9]*\.zip" "$page_file" 2>/dev/null | tail -1)
   fi
   if [ -z "$url" ]; then
-    # 匹配该设备的最新 OTA
     url=$(grep -o "https://dl.google.com/dl/android/aosp/${device}-ota-[a-zA-Z0-9.\-]*\.zip" "$page_file" 2>/dev/null | tail -1)
   fi
 
   rm -f "$page_file"
-  [ -n "$url" ] && echo "$url" || return 1
+
+  if [ -n "$url" ]; then
+    printGreen "从 Google OTA 页面找到 URL: $(basename "$url")"
+    echo "$url"
+    return 0
+  else
+    printYellow "在页面中未找到 ${device} 的 OTA 链接（可能被反爬或页面结构变更）"
+    return 1
+  fi
 }
 
 # ============================================================
