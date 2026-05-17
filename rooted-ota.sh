@@ -217,16 +217,10 @@ sys.stdout.write(ver)
   fi
 
   # --------------- Magisk preinit 自动检测 ---------------
-  if [[ -z "$MAGISK_PREINIT_DEVICE" ]] && [ -f "$DEVICES_JSON" ]; then
-    MAGISK_PREINIT_DEVICE=$(python3 -c "
-import json, sys
-with open('$DEVICES_JSON') as f:
-    devices = json.load(f)
-sys.stdout.write(devices.get('$DEVICE_ID', {}).get('magisk_preinit', '') or '')
-" 2>/dev/null) || MAGISK_PREINIT_DEVICE=""
-    if [[ -n "$MAGISK_PREINIT_DEVICE" ]]; then
-      printGreen "自动检测到 Magisk preinit: $MAGISK_PREINIT_DEVICE"
-    fi
+  # 如果未设置，将在 downloadAndroidDependencies 下载完 OTA 后从 boot.img 检测
+  # 见 patchOTAs 中的检测逻辑
+  if [[ -z "$MAGISK_PREINIT_DEVICE" ]]; then
+    print "MAGISK_PREINIT_DEVICE 未设置，将在 OTA 下载后从 boot.img 自动检测"
   fi
 
   # --------------- 构造 OTA URL ---------------
@@ -335,6 +329,39 @@ function patchOTAs() {
   fi
 
   base642key
+
+  # --------------- 从 boot.img 自动检测 KMI 和 Magisk preinit ---------------
+  # 只要未显式设置 KSU_KMI 或 MAGISK_PREINIT_DEVICE，就从 OTA 提取 boot.img 检测
+  if [[ -z "$KSU_KMI" ]] || [[ -z "$MAGISK_PREINIT_DEVICE" ]]; then
+    local otaZip=".tmp/$OTA_TARGET.zip"
+    if [ -f "$otaZip" ]; then
+      downloadMagiskBoot
+      print "正在从 OTA 提取 boot.img 以检测设备参数..."
+      local detectDir=".tmp/preinit_detect"
+      mkdir -p "$detectDir/boot_extracted"
+      .tmp/avbroot ota extract \
+        --input "$otaZip" \
+        --directory "$detectDir/boot_extracted" \
+        --boot-only 2>/dev/null || true
+      local bootImg="$detectDir/boot_extracted/boot.img"
+      if [ -f "$bootImg" ]; then
+        DETECTED_KMI=""
+        DETECTED_PREINIT=""
+        detectDeviceParams "$bootImg"
+        if [[ -z "$KSU_KMI" ]] && [[ -n "$DETECTED_KMI" ]]; then
+          KSU_KMI="$DETECTED_KMI"
+          printGreen "自动检测到 KSU_KMI: $KSU_KMI"
+        fi
+        if [[ -z "$MAGISK_PREINIT_DEVICE" ]] && [[ -n "$DETECTED_PREINIT" ]]; then
+          MAGISK_PREINIT_DEVICE="$DETECTED_PREINIT"
+          printGreen "自动检测到 MAGISK_PREINIT_DEVICE: $MAGISK_PREINIT_DEVICE"
+        fi
+      else
+        printYellow "无法从 OTA 提取 boot.img，将尝试在后续步骤中检测"
+      fi
+      rm -rf "$detectDir"
+    fi
+  fi
 
   for flavor in "${!POTENTIAL_ASSETS[@]}"; do
     if [[ "$flavor" == 'ksu' ]]; then
@@ -488,9 +515,9 @@ import shutil; shutil.rmtree('lib', ignore_errors=True)
   printGreen "magiskboot 提取完成"
 }
 
-function detectKsuKmi() {
+function detectDeviceParams() {
   local bootImg="$1"
-  local workDir=".tmp/ksu_kmi_detect"
+  local workDir=".tmp/device_detect"
   rm -rf "$workDir"
   mkdir -p "$workDir"
 
@@ -500,8 +527,9 @@ function detectKsuKmi() {
   if [ ! -f "$kernelFile" ]; then
     printRed "无法从 boot.img 提取内核" >&2
     rm -rf "$workDir"
-    echo "unknown"
-    return
+    DETECTED_KMI=""
+    DETECTED_PREINIT=""
+    return 1
   fi
 
   local kernelVer
@@ -510,8 +538,9 @@ function detectKsuKmi() {
 
   if [ -z "$kernelVer" ]; then
     printRed "无法从 boot.img 检测内核版本" >&2
-    echo "unknown"
-    return
+    DETECTED_KMI=""
+    DETECTED_PREINIT=""
+    return 1
   fi
 
   print "内核版本: $kernelVer"
@@ -520,21 +549,37 @@ function detectKsuKmi() {
   major=$(echo "$kernelVer" | sed 's/Linux version //' | cut -d'.' -f1)
   minor=$(echo "$kernelVer" | sed 's/Linux version //' | cut -d'.' -f2)
 
-  local kmi=""
   case "${major}.${minor}" in
-    "5.10") kmi="android12-5.10" ;;
-    "5.15") kmi="android13-5.15" ;;
-    "6.1")  kmi="android14-6.1" ;;
-    "6.6")  kmi="android15-6.6" ;;
-    "6.12") kmi="android16-6.12" ;;
+    "5.10")
+      DETECTED_KMI="android12-5.10"
+      DETECTED_PREINIT="metadata"
+      ;;
+    "5.15")
+      DETECTED_KMI="android13-5.15"
+      DETECTED_PREINIT="metadata"
+      ;;
+    "6.1")
+      DETECTED_KMI="android14-6.1"
+      DETECTED_PREINIT="sda10"
+      ;;
+    "6.6")
+      DETECTED_KMI="android15-6.6"
+      DETECTED_PREINIT="sda10"
+      ;;
+    "6.12")
+      DETECTED_KMI="android16-6.12"
+      DETECTED_PREINIT="sda10"
+      ;;
     *)
-      printRed "未知内核版本 ${major}.${minor}"
-      echo "unknown"
-      return
+      printRed "未知内核版本 ${major}.${minor}，无法检测设备参数" >&2
+      DETECTED_KMI=""
+      DETECTED_PREINIT=""
+      return 1
       ;;
   esac
 
-  echo "$kmi"
+  printGreen "检测到 KMI: $DETECTED_KMI, preinit: $DETECTED_PREINIT"
+  return 0
 }
 
 function injectKsuIntoOta() {
@@ -558,24 +603,13 @@ function injectKsuIntoOta() {
 
   local kmi="${KSU_KMI}"
   if [ -z "$kmi" ]; then
-    # 尝试从 devices.json 获取 KMI
-    if [ -f "$DEVICES_JSON" ]; then
-      kmi=$(python3 -c "
-import json, sys
-with open('$DEVICES_JSON') as f:
-    devices = json.load(f)
-sys.stdout.write(devices.get('$DEVICE_ID', {}).get('ksu_kmi', '') or '')
-" 2>/dev/null) || kmi=""
-    fi
-    if [[ -n "$kmi" ]]; then
-      printGreen "从 devices.json 获取 KMI: $kmi"
-    else
-      print "正在从 boot.img 自动检测 KMI..."
-      kmi=$(detectKsuKmi "$workDir/extracted/boot.img")
-      kmi=$(echo "$kmi" | tr -d '[:space:]')
-    fi
-    if [ -z "$kmi" ] || [ "$kmi" = "unknown" ]; then
-      printYellow "KMI 检测失败，使用设备默认值"
+    print "正在从 boot.img 自动检测 KMI..."
+    DETECTED_KMI=""
+    DETECTED_PREINIT=""
+    detectDeviceParams "$workDir/extracted/boot.img"
+    kmi="$DETECTED_KMI"
+    if [ -z "$kmi" ]; then
+      printYellow "KMI 自动检测失败，使用设备默认值"
       case "$DEVICE_ID" in
         shiba|husky|akita)  kmi="android14-6.1" ;;  # Pixel 8 系列
         tokay|caiman|komodo) kmi="android15-6.6" ;; # Pixel 9 系列
