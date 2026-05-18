@@ -165,4 +165,4 @@ jobs:
         with:
           name: ${{ env.DEVICE_ID }}-ota-artifacts
           path: .tmp/*.zip
-          if-no-files-found: warning
+          if-no-files-found: warn
