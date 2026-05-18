@@ -6,6 +6,7 @@
 #
 # 基于 rooted-graphene (https://github.com/warpdotsys/rooted-graphene) 修改
 # Copyright 2024-2026 参见 LICENSE
+# Workflow 位置: .github/workflows/release-single.yaml
 
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -114,6 +115,13 @@ function initToolCache() {
   else
     print "工具缓存不存在，将在线下载"
   fi
+
+  # 自动检测版本号（"auto" → 实际版本）
+  [[ "$AVB_ROOT_VERSION" == "auto" ]] && AVB_ROOT_VERSION=$(fetchLatestGithubTag "chenxiaolong/avbroot" "3.29.1")
+  [[ "$CUSTOTA_VERSION" == "auto" ]] && CUSTOTA_VERSION=$(fetchLatestGithubTag "chenxiaolong/Custota" "5.22")
+  [[ "$AFSR_VERSION" == "auto" ]] && AFSR_VERSION=$(fetchLatestGithubTag "chenxiaolong/afsr" "1.0.4")
+  [[ "$PATCH_PY_COMMIT" == "auto" ]] && PATCH_PY_COMMIT=$(fetchLatestCommit "chenxiaolong/my-avbroot-setup" "master" "84139189c8cbe244a676582a3b3517f31fabc421")
+  print "已检测依赖版本: avbroot=$AVB_ROOT_VERSION Custota=$CUSTOTA_VERSION afsr=$AFSR_VERSION"
 }
 
 function saveToolCache() {
