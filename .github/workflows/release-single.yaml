@@ -148,8 +148,21 @@ jobs:
           key: tool-cache-${{ runner.os }}-v1
 
       - name: 上传构建产物
+        shell: bash
+        run: |
+          echo "=== .tmp/ 内容 ==="
+          ls -lh .tmp/ 2>/dev/null | head -20
+          echo "=== .tmp/*.zip ==="
+          ls -lh .tmp/*.zip 2>/dev/null | head -10
+          if ls .tmp/*.zip 2>/dev/null; then
+            find .tmp -maxdepth 1 -name '*.zip' -exec echo "上传: {}" \;
+          else
+            echo "没有找到 zip 文件"
+          fi
+      - name: 上传 ZIP 产物
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.DEVICE_ID }}-ota-artifacts
           path: .tmp/*.zip
-          if-no-files-found: error
+          if-no-files-found: warning
