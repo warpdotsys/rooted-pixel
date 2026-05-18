@@ -168,30 +168,35 @@ jobs:
           echo "=== .tool-cache 内容 ==="
           ls -la .tool-cache/ 2>/dev/null | head -20 || echo ".tool-cache 不存在"
 
-      - name: 上传构建产物（手动 cp）
+      - name: 上传构建产物
         if: always()
         run: |
           echo "=== 准备上传临时目录 ==="
           mkdir -p .upload-tmp
-          # 显式复制每个文件，确保 glob 展开
+          # 显式复制每个文件
           for f in .tmp/shiba-cp1a*.zip .tmp/shiba-ota-*.zip; do
             if [ -f "$f" ]; then
-              echo "Copying: $f ($(du -h "$f" | cut -f1))"
+              echo "Copying: $f"
               cp "$f" .upload-tmp/
             fi
           done
           echo "=== .upload-tmp 内容 ==="
           ls -lah .upload-tmp/ || echo "无文件"
+          echo "=== .tmp 内容 ==="
+          ls -lah .tmp/ | grep -E '\.zip$' | head -10
           echo ""
-          echo "=== .tmp/*.zip 内容 ==="
-          ls -lah .tmp/*.zip || echo "无 zip"
+          echo "=== 使用 tar 打包上传 ==="
+          # 将 .upload-tmp 内容打包成 tar.gz
+          tar -czvf artifacts.tar.gz -C . upload-tmp/
+          echo "打包完成，大小: $(du -h artifacts.tar.gz | cut -f1)"
         continue-on-error: true
 
-      - name: 上传构建产物（标准 action）
+      - name: 上传构建产物（artifact）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEVICE_ID }}-ota-artifacts-v4
-          path: .upload-tmp/
+          name: ${{ env.DEVICE_ID }}-ota-artifacts
+          path: artifacts.tar.gz
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 30
+          compression-level: 0
