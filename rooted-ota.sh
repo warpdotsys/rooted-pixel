@@ -828,7 +828,7 @@ function createReleaseIfNecessary() {
       changelog=$(curl -sL -X POST -H "Authorization: token $GITHUB_TOKEN" \
         -d "{
                 \"tag_name\": \"$OTA_VERSION\",
-                \"target_commitish\": \"main\"
+                \"target_commitish\": \"master\"
               }" \
         "https://api.github.com/repos/$GITHUB_REPO/releases/generate-notes" | jq -r '.body // empty')
       changelog="更新到 Pixel $OTA_VERSION.\n\n$(echo "${changelog}" | sed ':a;N;$!ba;s/\n/\\n/g')"
@@ -840,7 +840,7 @@ function createReleaseIfNecessary() {
     response=$(curl -sL -X POST -H "Authorization: token $GITHUB_TOKEN" \
       -d "{
               \"tag_name\": \"$OTA_VERSION\",
-              \"target_commitish\": \"main\",
+              \"target_commitish\": \"master\",
               \"name\": \"$OTA_VERSION\",
               \"body\": \"${changelog}\"
             }" \
