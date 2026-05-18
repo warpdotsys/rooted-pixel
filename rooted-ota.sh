@@ -594,27 +594,40 @@ function detectDeviceParams() {
   local bootImg="$1"
   local kernelVer=""
 
-  # 方案一：直接从 boot.img 原始字节中读取内核版本（无需解包）
-  kernelVer=$(strings "$bootImg" | grep -E 'Linux version [0-9]+\.[0-9]+' | head -1)
+  # 主方案：使用 magiskboot 解包 boot.img 并自动解压内核
+  #
+  # 文档依据：
+  #   magiskboot unpack（不带 -n 时）默认自动解压所有组件
+  #   https://topjohnwu.github.io/Magisk/tools.html#magiskboot
+  #   "By default, each component will be automatically decompressed
+  #    on-the-fly before writing to the output file."
+  #
+  # avbroot 也采用相同方法（avbroot/src/patch/boot.rs·get_kmi_version）：
+  #   1. 从 boot image 中提取内核数据
+  #   2. 自动检测压缩格式并解压（CompressedReader::new(raw_reader, true)）
+  #   3. 在解压后的内核中搜索 "Linux version X.Y..." 正则
+  #
+  # 输出的组件文件名包括: kernel, kernel_dtb, ramdisk.cpio, second, dtb, ...
+  # GKI 设备（Pixel 8+）通常输出 kernel_dtb（内核+DTB 合并格式）
+  # 传统设备输出 kernel
+  local workDir=".tmp/device_detect"
+  rm -rf "$workDir"
+  mkdir -p "$workDir"
+  (cd "$workDir" && ../magiskboot unpack "../$bootImg" >/dev/null 2>&1) || true
 
-  # 方案二：兜底——magiskboot 解包后从内核文件中读取
-  if [ -z "$kernelVer" ]; then
-    local workDir=".tmp/device_detect"
-    rm -rf "$workDir"
-    mkdir -p "$workDir"
-    (cd "$workDir" && ../magiskboot unpack "../$bootImg" >/dev/null 2>&1) || true
-    local kernelFile=""
-    for f in kernel kernel.gz Image Image.gz Image.lz4; do
-      if [ -f "$workDir/$f" ]; then
-        kernelFile="$workDir/$f"
-        break
-      fi
-    done
-    if [ -n "$kernelFile" ]; then
-      kernelVer=$(strings "$kernelFile" | grep -E '^Linux version [0-9]+\.[0-9]+' | head -1)
+  local kernelFile=""
+  for f in kernel kernel_dtb kernel.gz Image Image.gz Image.lz4; do
+    if [ -f "$workDir/$f" ]; then
+      kernelFile="$workDir/$f"
+      break
     fi
-    rm -rf "$workDir"
+  done
+
+  if [ -n "$kernelFile" ]; then
+    # magiskboot 已自动解压，直接读取版本字符串
+    kernelVer=$(strings "$kernelFile" | grep -m1 'Linux version [0-9]\+\.[0-9]\+')
   fi
+  rm -rf "$workDir"
 
   if [ -n "$kernelVer" ]; then
     print "内核版本: $kernelVer"
@@ -637,7 +650,7 @@ function detectDeviceParams() {
     return 0
   fi
 
-  # 方案三：检测完全失败，使用设备已知参数
+  # 回退方案：magiskboot 无法处理该 boot.img 格式，使用设备已知参数
   printYellow "无法从 boot.img 检测内核版本，使用设备已知参数" >&2
   case "${DEVICE_ID}" in
     # Tensor G1/G2 (Pixel 6/7 系列) — kernel 5.10/5.15
