@@ -619,7 +619,7 @@ function detectDeviceParams() {
   local workDir=".tmp/device_detect"
   rm -rf "$workDir"
   mkdir -p "$workDir"
-  (cd "$workDir" && ../magiskboot unpack "../$bootImg" >/dev/null 2>&1) || true
+  (cd "$workDir" && ../.tmp/magiskboot unpack "../$bootImg" >/dev/null 2>&1) || true
 
   local kernelFile=""
   for f in kernel kernel_dtb kernel.gz Image Image.gz Image.lz4; do
