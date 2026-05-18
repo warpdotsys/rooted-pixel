@@ -19,6 +19,10 @@ on:
       ksu-kmi:
         type: string
         default: ''
+      lenient-check:
+        description: 宽松跳过（同 OTA 版本有任意 asset 就跳过）
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -101,6 +105,7 @@ jobs:
           echo "UPLOAD_TEST_OTA=${{ github.event.inputs.upload-test-ota || inputs.upload-test-ota || 'false' }}" >> $GITHUB_ENV
           echo "FORCE_BUILD=${{ github.event.inputs.force-build || inputs.force-build || 'false' }}" >> $GITHUB_ENV
           echo "FORCE_OTA_SERVER_UPLOAD=${{ github.event.inputs.force-ota-server-upload || inputs.force-ota-server-upload || 'false' }}" >> $GITHUB_ENV
+          echo "CHECK_LENIENT=${{ inputs.lenient-check || 'false' }}" >> $GITHUB_ENV
 
       - name: 加载密钥
         run: |
