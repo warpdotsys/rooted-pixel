@@ -567,12 +567,13 @@ for a in data.get('assets', []):
 
   if [ -z "$ksudUrl" ]; then
     print "KSU $KSU_VERSION 没有 Linux ksud 二进制。回退到 v3.2.1..."
-    ksudUrl="https://github.com/tiann/KernelSU/releases/download/v3.2.1/ksud-x86_64-unknown-linux-musl"
+    ksuVer="3.2.1"
+    ksudUrl="https://github.com/tiann/KernelSU/releases/download/v${ksuVer}/ksud-x86_64-unknown-linux-musl"
 
     local kmi="${KSU_KMI}"
     if [ -n "$kmi" ]; then
       local koTarget=".tmp/ksu_module.ko"
-      print "正在从 KernelSU $KSU_VERSION 下载 ${kmi}_kernelsu.ko..."
+      print "正在从 KernelSU v${ksuVer} 下载 ${kmi}_kernelsu.ko..."
       curl --fail -sLo "$koTarget" \
         "https://github.com/tiann/KernelSU/releases/download/v${ksuVer}/${kmi}_kernelsu.ko" || {
         printYellow "从 v${ksuVer} 下载 KMI $kmi 的 .ko 失败，将使用内置模块"
