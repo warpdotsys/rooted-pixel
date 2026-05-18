@@ -248,6 +248,8 @@ function findLatestVersion() {
   if [[ "$MAGISK_VERSION" == 'latest' ]] || [[ "$MAGISK_VERSION" == 'auto' ]]; then
     MAGISK_VERSION=$(curl --fail -sL -I -o /dev/null -w '%{url_effective}' \
       https://github.com/topjohnwu/Magisk/releases/latest | sed 's/.*\/tag\///;')
+    # 规范化：确保以 v 开头
+    [[ "$MAGISK_VERSION" != v* ]] && MAGISK_VERSION="v${MAGISK_VERSION}"
   fi
   print "Magisk 版本: $MAGISK_VERSION"
 
