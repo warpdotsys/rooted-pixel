@@ -154,6 +154,20 @@ jobs:
           path: .tool-cache
           key: tool-cache-${{ runner.os }}-v1
 
+      - name: 验证产物存在
+        run: |
+          echo "=== .tmp 目录内容 ==="
+          ls -la .tmp/ 2>/dev/null || echo ".tmp 不存在"
+          echo ""
+          echo "=== .tmp/*.zip 文件 ==="
+          ls -lah .tmp/*.zip 2>/dev/null || echo "未找到 *.zip 文件"
+          echo ""
+          echo "=== 当前目录 ==="
+          pwd
+          echo ""
+          echo "=== .tool-cache 内容 ==="
+          ls -la .tool-cache/ 2>/dev/null | head -20 || echo ".tool-cache 不存在"
+
       - name: 上传构建产物
         if: always()
         uses: actions/upload-artifact@v4
