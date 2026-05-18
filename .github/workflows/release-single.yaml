@@ -170,29 +170,9 @@ jobs:
 
       - name: 上传构建产物
         if: always()
-        run: |
-          echo "=== 检查 .tmp 目录 ==="
-          ls -lah .tmp/*.zip | head -10
-          echo ""
-          echo "=== 重命名为固定文件名以便上传 ==="
-          # 复制到根目录并重命名为固定文件名
-          for f in .tmp/shiba-cp1a*.zip; do
-            if [ -f "$f" ]; then
-              bn=$(basename "$f")
-              echo "  $bn -> $f"
-              cp "$f" "./$bn"
-            fi
-          done
-          echo ""
-          echo "=== 准备上传的文件 ==="
-          ls -lah shiba-cp1a*.zip | head -10
-        continue-on-error: true
-
-      - name: 上传构建产物（final）
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEVICE_ID }}-ota-final
+          name: ${{ env.DEVICE_ID }}-ota-artifacts
           path: |
             shiba-cp1a.260505.005.a1-*.zip
           if-no-files-found: warn
