@@ -168,6 +168,16 @@ jobs:
           echo "=== .tool-cache 内容 ==="
           ls -la .tool-cache/ 2>/dev/null | head -20 || echo ".tool-cache 不存在"
 
+      - name: 准备上传目录
+        if: always()
+        run: |
+          # 将 .tmp 中的产物复制到根目录以便 upload-artifact 正确匹配
+          for f in .tmp/shiba-cp1a*.zip; do
+            [ -f "$f" ] && cp "$f" ./
+          done
+          echo "=== 准备上传的文件 ==="
+          ls -lah shiba-cp1a*.zip 2>/dev/null || echo "无文件"
+
       - name: 上传构建产物
         if: always()
         uses: actions/upload-artifact@v4
