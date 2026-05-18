@@ -170,8 +170,31 @@ jobs:
 
       - name: 上传构建产物
         if: always()
+        run: |
+          echo "=== 上传构建产物前检查 ==="
+          find .tmp -maxdepth 1 -name "*.zip" -type f -ls
+          echo ""
+          echo "=== 尝试上传 ==="
+          # Use explicit find to ensure files are captured
+          ZIP_FILES=$(find .tmp -maxdepth 1 -name "*.zip" -type f 2>/dev/null)
+          echo "Found zip files: $ZIP_FILES"
+          if [ -n "$ZIP_FILES" ]; then
+            echo "Found $(echo $ZIP_FILES | wc -w) zip files, uploading..."
+            for f in $ZIP_FILES; do
+              echo "  - $f ($(du -h "$f" | cut -f1))"
+            done
+          else
+            echo "WARNING: No zip files found in .tmp/"
+          fi
+        continue-on-error: true
+
+      - name: 上传构建产物（标准 action）
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEVICE_ID }}-ota-artifacts
-          path: .tmp/*.zip
+          name: ${{ env.DEVICE_ID }}-ota-artifacts-v2
+          path: |
+            .tmp/shiba-*.zip
+            .tmp/cp1a-*.zip
           if-no-files-found: warn
+          retention-days: 7
