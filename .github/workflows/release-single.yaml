@@ -173,18 +173,25 @@ jobs:
         run: |
           echo "=== 准备上传临时目录 ==="
           mkdir -p .upload-tmp
-          cp .tmp/shiba-*.zip .tmp/*cp1a*.zip .upload-tmp/ 2>/dev/null || true
-          ls -lah .upload-tmp/ || echo "无文件可上传"
+          # 显式复制每个文件，确保 glob 展开
+          for f in .tmp/shiba-cp1a*.zip .tmp/shiba-ota-*.zip; do
+            if [ -f "$f" ]; then
+              echo "Copying: $f ($(du -h "$f" | cut -f1))"
+              cp "$f" .upload-tmp/
+            fi
+          done
+          echo "=== .upload-tmp 内容 ==="
+          ls -lah .upload-tmp/ || echo "无文件"
           echo ""
-          echo "=== 上传构建产物 ==="
-          ls -lah .tmp/*.zip
+          echo "=== .tmp/*.zip 内容 ==="
+          ls -lah .tmp/*.zip || echo "无 zip"
         continue-on-error: true
 
       - name: 上传构建产物（标准 action）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEVICE_ID }}-ota-artifacts-v3
+          name: ${{ env.DEVICE_ID }}-ota-artifacts-v4
           path: .upload-tmp/
           if-no-files-found: warn
           retention-days: 7
