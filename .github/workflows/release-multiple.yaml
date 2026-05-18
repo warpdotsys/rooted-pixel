@@ -46,6 +46,7 @@ jobs:
       device-id: caiman
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
 
   build-komodo:
     name: "komodo (Pixel 9 Pro XL)"
@@ -54,6 +55,7 @@ jobs:
       device-id: komodo
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
 
   build-shiba:
     name: "shiba (Pixel 8)"
@@ -62,6 +64,7 @@ jobs:
       device-id: shiba
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
 
   build-husky:
     name: "husky (Pixel 8 Pro)"
@@ -70,6 +73,7 @@ jobs:
       device-id: husky
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
 
   build-panther:
     name: "panther (Pixel 7)"
@@ -78,6 +82,7 @@ jobs:
       device-id: panther
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
 
   build-cheetah:
     name: "cheetah (Pixel 7 Pro)"
@@ -86,6 +91,7 @@ jobs:
       device-id: cheetah
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
 
   build-oriole:
     name: "oriole (Pixel 6)"
@@ -94,3 +100,4 @@ jobs:
       device-id: oriole
       ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
       lenient-check: true
+    secrets: inherit
