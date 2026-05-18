@@ -168,33 +168,23 @@ jobs:
           echo "=== .tool-cache 内容 ==="
           ls -la .tool-cache/ 2>/dev/null | head -20 || echo ".tool-cache 不存在"
 
-      - name: 上传构建产物
+      - name: 上传构建产物（手动 cp）
         if: always()
         run: |
-          echo "=== 上传构建产物前检查 ==="
-          find .tmp -maxdepth 1 -name "*.zip" -type f -ls
+          echo "=== 准备上传临时目录 ==="
+          mkdir -p .upload-tmp
+          cp .tmp/shiba-*.zip .tmp/*cp1a*.zip .upload-tmp/ 2>/dev/null || true
+          ls -lah .upload-tmp/ || echo "无文件可上传"
           echo ""
-          echo "=== 尝试上传 ==="
-          # Use explicit find to ensure files are captured
-          ZIP_FILES=$(find .tmp -maxdepth 1 -name "*.zip" -type f 2>/dev/null)
-          echo "Found zip files: $ZIP_FILES"
-          if [ -n "$ZIP_FILES" ]; then
-            echo "Found $(echo $ZIP_FILES | wc -w) zip files, uploading..."
-            for f in $ZIP_FILES; do
-              echo "  - $f ($(du -h "$f" | cut -f1))"
-            done
-          else
-            echo "WARNING: No zip files found in .tmp/"
-          fi
+          echo "=== 上传构建产物 ==="
+          ls -lah .tmp/*.zip
         continue-on-error: true
 
       - name: 上传构建产物（标准 action）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEVICE_ID }}-ota-artifacts-v2
-          path: |
-            .tmp/shiba-*.zip
-            .tmp/cp1a-*.zip
+          name: ${{ env.DEVICE_ID }}-ota-artifacts-v3
+          path: .upload-tmp/
           if-no-files-found: warn
           retention-days: 7
