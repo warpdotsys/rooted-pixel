@@ -6,6 +6,7 @@ on:
       - '*'
     paths:
       - rooted-ota.sh
+      - .github/workflows/*.yaml
   pull_request:
     types: [synchronize, opened, reopened]
     paths:
@@ -130,6 +131,7 @@ jobs:
       - name: 构建 OTA（rootless + KernelSU + Magisk）
         env:
           GITHUB_REPO: ${{ github.repository }}
+          PRESEED_OTA_DIR: /opt/actions-runner/_work/rooted-pixel/.ota-cache
         run: |
           source rooted-ota.sh
           if [[ $SKIP_RELEASE == 'true' ]]; then

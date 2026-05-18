@@ -352,20 +352,30 @@ function downloadAndroidDependencies() {
   fi
 
   if ! ls ".tmp/$OTA_TARGET.zip" >/dev/null 2>&1; then
-    print "正在下载 $OTA_URL ..."
-    # dl.google.com 需要 TOS cookie，否则返回 "Sorry... automated queries"
-    curl -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
-      -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-      --retry 3 --retry-delay 5 \
-      -o ".tmp/$OTA_TARGET.zip" "$OTA_URL"
+    if [[ -n "$PRESEED_OTA_DIR" ]] && [ -f "$PRESEED_OTA_DIR/$OTA_TARGET.zip" ]; then
+      cp "$PRESEED_OTA_DIR/$OTA_TARGET.zip" ".tmp/$OTA_TARGET.zip"
+      printGreen "从预置目录复制了 OTA: $PRESEED_OTA_DIR/$OTA_TARGET.zip"
+    else
+      print "正在下载 $OTA_URL ..."
+      # dl.google.com 需要 TOS cookie，否则返回 "Sorry... automated queries"
+      curl -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
+        -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+        --retry 3 --retry-delay 5 \
+        -o ".tmp/$OTA_TARGET.zip" "$OTA_URL"
+    fi
   fi
   if [ -f ".tmp/$OTA_TARGET.zip" ] && [ "$(stat -c%s ".tmp/$OTA_TARGET.zip")" -lt 10240 ]; then
     printRed "下载文件过小（可能是错误页面），删除重试"
     rm -f ".tmp/$OTA_TARGET.zip"
-    curl -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
-      -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-      --retry 3 --retry-delay 5 \
-      -o ".tmp/$OTA_TARGET.zip" "$OTA_URL"
+    if [[ -n "$PRESEED_OTA_DIR" ]] && [ -f "$PRESEED_OTA_DIR/$OTA_TARGET.zip" ]; then
+      cp "$PRESEED_OTA_DIR/$OTA_TARGET.zip" ".tmp/$OTA_TARGET.zip"
+      printGreen "从预置目录重新复制了 OTA: $PRESEED_OTA_DIR/$OTA_TARGET.zip"
+    else
+      curl -sL -H "Cookie: devsite_wall_acks=nexus-ota-tos" \
+        -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+        --retry 3 --retry-delay 5 \
+        -o ".tmp/$OTA_TARGET.zip" "$OTA_URL"
+    fi
   fi
 }
 
