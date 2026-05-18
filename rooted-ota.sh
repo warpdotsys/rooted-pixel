@@ -455,7 +455,9 @@ function patchOTAs() {
 
       if [[ "$flavor" == 'magisk' ]]; then
         args+=("--patch-arg=--magisk" "--patch-arg" ".tmp/magisk-$MAGISK_VERSION.apk")
-        args+=("--patch-arg=--magisk-preinit-device" "--patch-arg" "$MAGISK_PREINIT_DEVICE")
+        if [[ -n "$MAGISK_PREINIT_DEVICE" ]]; then
+          args+=("--patch-arg=--magisk-preinit-device" "--patch-arg" "$MAGISK_PREINIT_DEVICE")
+        fi
       fi
 
       if [ -v PASSPHRASE_AVB ]; then
@@ -596,9 +598,17 @@ function detectDeviceParams() {
 
   (cd "$workDir" && ../magiskboot unpack "../$bootImg" >/dev/null 2>&1) || true
 
-  local kernelFile="$workDir/kernel"
-  if [ ! -f "$kernelFile" ]; then
-    printRed "无法从 boot.img 提取内核" >&2
+  # 尝试多个可能的 kernel 文件名（GKI 格式可能不同）
+  local kernelFile
+  for f in kernel kernel.gz Image Image.gz Image.lz4; do
+    if [ -f "$workDir/$f" ]; then
+      kernelFile="$workDir/$f"
+      break
+    fi
+  done
+
+  if [ -z "$kernelFile" ]; then
+    printYellow "无法从 boot.img 提取内核（magiskboot 无法解包），将使用默认值" >&2
     rm -rf "$workDir"
     DETECTED_KMI=""
     DETECTED_PREINIT=""
