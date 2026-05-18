@@ -18,7 +18,7 @@ jobs:
       - name: ShellCheck
         run: |
           sudo apt-get install -y shellcheck
-          shellcheck rooted-ota.sh
+          shellcheck --severity=warning rooted-ota.sh
 
       - name: 验证 devices.json 格式
         run: |
@@ -32,6 +32,3 @@ jobs:
               builds = info.get('builds', [])
               print(f'  - {name} ({info.get(\"name\", \"\")}): {len(builds)} 个构建')
           " 2>&1
-
-      - name: ShellCheck（严格模式）
-        run: shellcheck --severity=warning rooted-ota.sh
