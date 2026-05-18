@@ -61,6 +61,12 @@ KERNELPATCH_VERSION=${KERNELPATCH_VERSION:-'0.13.1'}
 
 NO_COLOR=${NO_COLOR:-''}
 
+# 宽松检查：schedule 构建只匹配 OTA 版本（忽略 commit hash），workflow_dispatch 严格匹配
+CHECK_LENIENT=${CHECK_LENIENT:-'false'}
+
+# 全局变量
+RELEASE_ID=''
+
 # ============================================================
 # Pixel 出厂 OTA 源
 # ============================================================
@@ -987,24 +993,31 @@ function gitPushWithRetries() {
 # ============================================================
 
 function determineAssets() {
-  # 确定需要构建的 flavor
+  # 确定需要构建的 flavor，使用包含 commit hash 的命名以支持跳过逻辑
+
+  local currentCommit
+  currentCommit=$(git rev-parse --short HEAD)
+
   if [[ "$OTA_TARGET" == *-factory-* ]]; then
     printYellow "使用 factory image，仅支持 rootless（无 OTA 更新功能）"
     POTENTIAL_ASSETS['rootless']="${OTA_TARGET}.patched.zip"
     return
   fi
 
+  # 命名格式: {DEVICE_ID}-{OTA_VERSION}-{commitHash}-{flavor}{suffix}.zip
+  local baseName="${DEVICE_ID}-${OTA_VERSION}-${currentCommit}"
+
   # Rootless
-  POTENTIAL_ASSETS['rootless']="${OTA_TARGET}.patched.zip"
+  POTENTIAL_ASSETS['rootless']="${baseName}-rootless$(createAssetSuffix).zip"
 
   # Magisk（如果指定了 preinit device）
   if [[ -n "$MAGISK_PREINIT_DEVICE" ]]; then
-    POTENTIAL_ASSETS['magisk']="${OTA_TARGET}-magisk.zip"
+    POTENTIAL_ASSETS['magisk']="${baseName}-magisk-${MAGISK_VERSION}$(createAssetSuffix).zip"
   fi
 
   # KernelSU（如果指定了版本）
   if [[ -n "$KSU_VERSION" ]]; then
-    POTENTIAL_ASSETS['ksu']="${OTA_TARGET}-kernelsu.zip"
+    POTENTIAL_ASSETS['ksu']="${baseName}-ksu-${KSU_VERSION}$(createAssetSuffix).zip"
   fi
 
   if [[ "${SKIP_ROOTLESS}" == 'true' ]]; then
@@ -1014,10 +1027,76 @@ function determineAssets() {
 
 declare -A POTENTIAL_ASSETS
 
+function checkBuildNecessary() {
+  local currentCommit
+  currentCommit=$(git rev-parse --short HEAD)
+
+  RELEASE_ID=''
+  local response
+
+  if [[ -z "$GITHUB_REPO" ]]; then
+    print "未设置环境变量 GITHUB_REPO，跳过已存在 release 的检查"
+    return
+  fi
+
+  print "潜在 release 版本: ${OTA_VERSION}"
+
+  local params=()
+  local url="https://api.github.com/repos/${GITHUB_REPO}/releases"
+
+  if [ -n "${GITHUB_TOKEN}" ]; then
+    params+=("-H" "Authorization: token ${GITHUB_TOKEN}")
+  fi
+  params+=("-H" "Accept: application/vnd.github.v3+json")
+
+  response=$(
+    curl --fail -sL "${params[@]}" "${url}" |
+      jq --arg release_tag "${OTA_VERSION}" '.[] | select(.tag_name == $release_tag) | {id, tag_name, assets}' 2>/dev/null || true
+  )
+
+  if [[ -n ${response} ]]; then
+    RELEASE_ID=$(echo "${response}" | jq -r '.id')
+    print "Release ${OTA_VERSION} 已存在。ID=$RELEASE_ID"
+
+    for flavor in "${!POTENTIAL_ASSETS[@]}"; do
+      local selectedAsset POTENTIAL_ASSET_NAME="${POTENTIAL_ASSETS[$flavor]}"
+      print "检查制品是否已存在: ${POTENTIAL_ASSET_NAME}"
+
+      # 严格模式（默认）：包含 commit hash，确保脚本变更后重新构建
+      # 宽松模式（CHECK_LENIENT=true）：只按 OTA 版本匹配，适合每日自动构建
+      local assetPrefix
+      if [[ "${CHECK_LENIENT:-false}" == 'true' ]]; then
+        assetPrefix="${DEVICE_ID}-${OTA_VERSION}"
+      else
+        assetPrefix="${DEVICE_ID}-${OTA_VERSION}-${currentCommit}"
+      fi
+      selectedAsset=$(echo "${response}" | jq -r --arg assetPrefix "$assetPrefix" \
+        '.assets[] | select(.name | startswith($assetPrefix)) | .name' \
+          | grep "${flavor}" || true)
+
+      if [[ -n "${selectedAsset}" ]] && [[ "$FORCE_BUILD" != 'true' ]] && [[ "$UPLOAD_TEST_OTA" != 'true' ]]; then
+        printGreen "跳过构建 '$POTENTIAL_ASSET_NAME'。该 flavor 已存在其他 commit 的产物。" \
+          "设置 FORCE_BUILD 或 UPLOAD_TEST_OTA 可强制构建。Release 中已有的产物: ${selectedAsset//$'\n'/ }"
+        unset "POTENTIAL_ASSETS[$flavor]"
+      else
+        print "在 release 中未找到同名产物。"
+      fi
+    done
+
+    if [ "${#POTENTIAL_ASSETS[@]}" -eq 0 ]; then
+      printGreen "所有潜在产物均已存在。退出。"
+      exit 0
+    fi
+  else
+    print "Release ${OTA_VERSION} 尚未存在。"
+  fi
+}
+
 function createRootedOta() {
   initToolCache
   findLatestVersion
   determineAssets
+  checkBuildNecessary   # 如果 release 中已存在相同 commit 的产物则跳过
   downloadAndroidDependencies
   patchOTAs
   if [ "$SKIP_CLEANUP" != 'true' ]; then
