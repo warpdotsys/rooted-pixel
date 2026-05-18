@@ -8,7 +8,8 @@
 # Copyright 2024-2026 参见 LICENSE
 # Workflow 位置: .github/workflows/release-single.yaml
 
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$_project_root"
 
 # 依赖：git、jq、curl、docker、python3、unzip
 
