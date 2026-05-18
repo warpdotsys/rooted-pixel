@@ -16,9 +16,9 @@ readonly PROJECT_ROOT="$_project_root"
 # ============================================================
 # 密钥配置
 # ============================================================
-KEY_AVB=${KEY_AVB:-avb.key}
-KEY_OTA=${KEY_OTA:-ota.key}
-CERT_OTA=${CERT_OTA:-ota.crt}
+KEY_AVB=${KEY_AVB:-/root/avb_keys/avb.key}
+KEY_OTA=${KEY_OTA:-/root/avb_keys/ota.key}
+CERT_OTA=${CERT_OTA:-/root/avb_keys/ota.crt}
 KEY_AVB_BASE64=${KEY_AVB_BASE64:-''}
 KEY_OTA_BASE64=${KEY_OTA_BASE64:-''}
 CERT_OTA_BASE64=${CERT_OTA_BASE64:-''}
@@ -115,6 +115,13 @@ function initToolCache() {
     print "从 .tool-cache 恢复了 $(ls .tool-cache | wc -l) 个工具"
   else
     print "工具缓存不存在，将在线下载"
+  fi
+  # 从预置目录加载 OTA zip（如果有），也立即缓存到 .tool-cache
+  if [[ -n "$PRESEED_OTA_DIR" ]] && [[ -n "$OTA_TARGET" ]] && [ -f "$PRESEED_OTA_DIR/$OTA_TARGET.zip" ]; then
+    mkdir -p .tmp .tool-cache
+    cp "$PRESEED_OTA_DIR/$OTA_TARGET.zip" ".tmp/$OTA_TARGET.zip"
+    cp ".tmp/$OTA_TARGET.zip" ".tool-cache/$OTA_TARGET.zip"
+    printGreen "预置 OTA zip 已加载并缓存到 .tool-cache/"
   fi
 
   # 自动检测版本号（"auto" → 实际版本）
@@ -380,6 +387,12 @@ function downloadAndroidDependencies() {
         -o ".tmp/$OTA_TARGET.zip" "$OTA_URL"
     fi
   fi
+  # OTA zip 下载完成后立即缓存，防止后续步骤失败导致重新下载触发 429
+  if [ -f ".tmp/$OTA_TARGET.zip" ] && [ "$(stat -c%s ".tmp/$OTA_TARGET.zip" 2>/dev/null || echo 0)" -ge 10240 ]; then
+    mkdir -p .tool-cache
+    cp ".tmp/$OTA_TARGET.zip" ".tool-cache/$OTA_TARGET.zip"
+    printGreen "OTA zip 已缓存到 .tool-cache/（防 429 限流）"
+  fi
 }
 
 function downloadAvBroot() {
@@ -550,6 +563,8 @@ function patchOTAs() {
 function downloadKsud() {
   local ksudBin=".tmp/ksud"
   local ksuVer="${KSU_VERSION#v}"
+  # 记录 KSU 原始版本号（用于 .ko 下载，始终用最新版）
+  local ksuOriginalVer="$ksuVer"
 
   if [ -f "$ksudBin" ] && [ -f ".tmp/ksud.version" ] && [ "$(cat .tmp/ksud.version)" = "$KSU_VERSION" ]; then
     return
@@ -572,17 +587,6 @@ for a in data.get('assets', []):
     print "KSU $KSU_VERSION 没有 Linux ksud 二进制。回退到 v3.2.1..."
     ksuVer="3.2.1"
     ksudUrl="https://github.com/tiann/KernelSU/releases/download/v${ksuVer}/ksud-x86_64-unknown-linux-musl"
-
-    local kmi="${KSU_KMI}"
-    if [ -n "$kmi" ]; then
-      local koTarget=".tmp/ksu_module.ko"
-      print "正在从 KernelSU v${ksuVer} 下载 ${kmi}_kernelsu.ko..."
-      curl --fail -sLo "$koTarget" \
-        "https://github.com/tiann/KernelSU/releases/download/v${ksuVer}/${kmi}_kernelsu.ko" || {
-        printYellow "从 v${ksuVer} 下载 KMI $kmi 的 .ko 失败，将使用内置模块"
-        rm -f "$koTarget"
-      }
-    fi
   fi
 
   print "正在下载 ksud..."
@@ -590,6 +594,18 @@ for a in data.get('assets', []):
   chmod +x "$ksudBin"
   echo "$KSU_VERSION" > ".tmp/ksud.version"
   printGreen "ksud 已下载（来自 ${ksudUrl}）"
+
+  # .ko 始终从用户指定的最新 KSU 版本下载（不从 fallback v3.2.1 下载）
+  local kmi="${KSU_KMI}"
+  if [ -n "$kmi" ]; then
+    local koTarget=".tmp/ksu_module.ko"
+    print "正在从 KernelSU v${ksuOriginalVer} 下载 ${kmi}_kernelsu.ko..."
+    curl -sLo "$koTarget" \
+      "https://github.com/tiann/KernelSU/releases/download/v${ksuOriginalVer}/${kmi}_kernelsu.ko" || {
+      printYellow "从 v${ksuOriginalVer} 下载 KMI $kmi 的 .ko 失败，将使用内置模块"
+      rm -f "$koTarget"
+    }
+  fi
 }
 
 function downloadMagiskBoot() {
@@ -641,7 +657,13 @@ function detectDeviceParams() {
   local workDir=".tmp/device_detect"
   rm -rf "$workDir"
   mkdir -p "$workDir"
-  (cd "$workDir" && ../.tmp/magiskboot unpack "../$bootImg" >/dev/null 2>&1) || true
+  # 从 workDir 出发，magiskboot 在 PROJECT_ROOT/.tmp/，bootImg 路径需要相对于 workDir
+  # 如果 bootImg 已经是绝对路径则直接使用，否则转换
+  local absBootImg="$bootImg"
+  if [[ "$bootImg" != /* ]]; then
+    absBootImg="$PROJECT_ROOT/$bootImg"
+  fi
+  (cd "$workDir" && "$PROJECT_ROOT/.tmp/magiskboot" unpack "$absBootImg" >/dev/null 2>&1) || true
 
   local kernelFile=""
   for f in kernel kernel_dtb kernel.gz Image Image.gz Image.lz4; do
@@ -811,18 +833,26 @@ function injectKsuIntoOta() {
 
 function base642key() {
   set +x
+  # 如果传入了 base64 编码的密钥，解码到 .tmp/ 并覆盖路径
   if [ -n "$KEY_AVB_BASE64" ]; then
-    echo "$KEY_AVB_BASE64" | base64 -d > .tmp/$KEY_AVB
-    KEY_AVB=.tmp/$KEY_AVB
+    echo "$KEY_AVB_BASE64" | base64 -d > ".tmp/avb.key"
+    KEY_AVB=".tmp/avb.key"
   fi
   if [ -n "$KEY_OTA_BASE64" ]; then
-    echo "$KEY_OTA_BASE64" | base64 -d > .tmp/$KEY_OTA
-    KEY_OTA=.tmp/$KEY_OTA
+    echo "$KEY_OTA_BASE64" | base64 -d > ".tmp/ota.key"
+    KEY_OTA=".tmp/ota.key"
   fi
   if [ -n "$CERT_OTA_BASE64" ]; then
-    echo "$CERT_OTA_BASE64" | base64 -d > .tmp/$CERT_OTA
-    CERT_OTA=.tmp/$CERT_OTA
+    echo "$CERT_OTA_BASE64" | base64 -d > ".tmp/ota.crt"
+    CERT_OTA=".tmp/ota.crt"
   fi
+  # 验证密钥文件存在
+  for keyFile in "$KEY_AVB" "$KEY_OTA" "$CERT_OTA"; do
+    if [ ! -f "$keyFile" ]; then
+      printRed "密钥文件不存在: $keyFile" >&2
+      exit 1
+    fi
+  done
   if [[ -n "${DEBUG}" ]]; then set -x; fi
 }
 

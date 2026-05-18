@@ -69,6 +69,11 @@ on:
         description: Magisk 版本
         required: false
 
+# 新 push 自动取消前一个正在运行的构建，避免资源浪费
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.device-id || inputs.device-id || 'shiba' }}
+  cancel-in-progress: true
+
 jobs:
   build-device:
     runs-on: [self-hosted, linux, x64]
@@ -132,6 +137,7 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
           PRESEED_OTA_DIR: /opt/actions-runner/_work/rooted-pixel/.ota-cache
+          SKIP_CLEANUP: 'true'
         run: |
           source rooted-ota.sh
           if [[ $SKIP_RELEASE == 'true' ]]; then
@@ -143,33 +149,15 @@ jobs:
       - name: 保存工具缓存
         if: always()
         uses: actions/cache/save@v5
+        continue-on-error: true
         with:
           path: .tool-cache
           key: tool-cache-${{ runner.os }}-v1
 
       - name: 上传构建产物
         if: always()
-        shell: bash
-        run: |
-          echo "=== GITHUB_WORKSPACE ==="
-          echo "$GITHUB_WORKSPACE"
-          echo "=== PWD ==="
-          pwd
-          echo "=== .tmp/ 内容 ==="
-          ls -lh .tmp/ 2>/dev/null | head -20
-          echo "=== .tmp/*.zip ==="
-          ls -lh .tmp/*.zip 2>/dev/null | head -10
-          if ls .tmp/*.zip 2>/dev/null; then
-            find .tmp -maxdepth 1 -name '*.zip' -exec echo "上传: {}" \;
-          else
-            echo "没有找到 zip 文件"
-          fi
-          echo "=== 绝对路径 .tmp/*.zip ==="
-          ls -lh "$GITHUB_WORKSPACE/.tmp/"*.zip 2>/dev/null | head -10
-      - name: 上传 ZIP 产物
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.DEVICE_ID }}-ota-artifacts
-          path: ${{ github.workspace }}/.tmp/*.zip
+          path: .tmp/*.zip
           if-no-files-found: warn
