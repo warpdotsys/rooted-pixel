@@ -171,32 +171,29 @@ jobs:
       - name: 上传构建产物
         if: always()
         run: |
-          echo "=== 准备上传临时目录 ==="
-          mkdir -p .upload-tmp
-          # 显式复制每个文件
-          for f in .tmp/shiba-cp1a*.zip .tmp/shiba-ota-*.zip; do
+          echo "=== 检查 .tmp 目录 ==="
+          ls -lah .tmp/*.zip | head -10
+          echo ""
+          echo "=== 重命名为固定文件名以便上传 ==="
+          # 复制到根目录并重命名为固定文件名
+          for f in .tmp/shiba-cp1a*.zip; do
             if [ -f "$f" ]; then
-              echo "Copying: $f"
-              cp "$f" .upload-tmp/
+              bn=$(basename "$f")
+              echo "  $bn -> $f"
+              cp "$f" "./$bn"
             fi
           done
-          echo "=== .upload-tmp 内容 ==="
-          ls -lah .upload-tmp/ || echo "无文件"
-          echo "=== .tmp 内容 ==="
-          ls -lah .tmp/ | grep -E '\.zip$' | head -10
           echo ""
-          echo "=== 使用 tar 打包上传 ==="
-          # 将 .upload-tmp 内容打包成 tar.gz
-          tar -czvf artifacts.tar.gz -C . upload-tmp/
-          echo "打包完成，大小: $(du -h artifacts.tar.gz | cut -f1)"
+          echo "=== 准备上传的文件 ==="
+          ls -lah shiba-cp1a*.zip | head -10
         continue-on-error: true
 
-      - name: 上传构建产物（artifact）
+      - name: 上传构建产物（final）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEVICE_ID }}-ota-artifacts
-          path: artifacts.tar.gz
+          name: ${{ env.DEVICE_ID }}-ota-final
+          path: |
+            shiba-cp1a.260505.005.a1-*.zip
           if-no-files-found: warn
           retention-days: 30
-          compression-level: 0
