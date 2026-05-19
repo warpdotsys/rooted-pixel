@@ -944,11 +944,51 @@ function uploadFile() {
 }
 
 # ============================================================
+# 部署 OTA 文件到本地 nginx 文件服务器（HKG VPS）
+# ============================================================
+
+function deployOtaAssets() {
+  local deployDir="${OTA_DEPLOY_DIR:-/opt/ota-storage}"
+
+  # 如果部署目录不存在，跳过
+  if [ ! -d "$deployDir" ]; then
+    printYellow "OTA 部署目录不存在 (${deployDir})，跳过部署到文件服务器"
+    return
+  fi
+
+  for flavor in "${!POTENTIAL_ASSETS[@]}"; do
+    local assetName="${POTENTIAL_ASSETS[$flavor]}"
+    local assetPath=".tmp/${assetName}"
+    local csigPath="${assetPath}.csig"
+
+    local flavor_dir="${deployDir}/${flavor}/${DEVICE_ID}"
+    mkdir -p "$flavor_dir"
+
+    # 部署 OTA zip
+    if [ -f "$assetPath" ]; then
+      cp "$assetPath" "${flavor_dir}/${assetName}"
+      printGreen "已部署 ${assetName} 到 ${flavor_dir}/"
+    else
+      printYellow "OTA 文件不存在，跳过: ${assetPath}"
+    fi
+
+    # 部署 .csig 签名文件
+    if [ -f "$csigPath" ]; then
+      cp "$csigPath" "${flavor_dir}/${assetName}.csig"
+      printGreen "已部署 ${assetName}.csig 到 ${flavor_dir}/"
+    fi
+  done
+}
+
+# ============================================================
 # OTA 服务器数据（Custota）
 # ============================================================
 
 function createOtaServerData() {
   downloadCusotaTool
+
+  # OTA 文件存放地址（HKG VPS nginx 文件服务器，不占用 443）
+  local storageBaseUrl="${OTA_STORAGE_URL:-http://82.47.32.130:8080}"
 
   for flavor in "${!POTENTIAL_ASSETS[@]}"; do
     local assetName="${POTENTIAL_ASSETS[$flavor]}"
@@ -970,7 +1010,7 @@ function createOtaServerData() {
 
     local args2=()
     args2+=("--file" ".tmp/${flavor}/${DEVICE_ID}.json")
-    args2+=("--location" "https://github.com/$GITHUB_REPO/releases/download/$OTA_VERSION/$assetName")
+    args2+=("--location" "${storageBaseUrl}/${flavor}/${DEVICE_ID}/${assetName}")
 
     .tmp/custota-tool gen-update-info "${args2[@]}"
   done
@@ -1177,8 +1217,9 @@ function createRootedOta() {
 function createAndReleaseRootedOta() {
   createRootedOta
   createOtaServerData
-  releaseOta
-  uploadOtaServerData
+  releaseOta          # 上传到 GitHub Release（可能因 2GB 限制跳过）
+  deployOtaAssets     # 部署到本地 nginx 文件服务器
+  uploadOtaServerData # 推送 JSON 到 gh-pages
 }
 
 function generateKeys() {
