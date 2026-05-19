@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "full": {
-    "location_ota": "http://82.47.32.130:8080/rootless/komodo/komodo-cp1a.260505.005.a1-dff92d9-rootless.zip",
-    "location_csig": "http://82.47.32.130:8080/rootless/komodo/komodo-cp1a.260505.005.a1-dff92d9-rootless.zip.csig"
-  }
-}
