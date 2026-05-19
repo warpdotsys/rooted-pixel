@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "full": {
-    "location_ota": "https://hkcf.warpdotsys.com/kernelsu/shiba/shiba-cp1a.260505.005.a1-efc7776-ksu-latest.zip",
-    "location_csig": "https://hkcf.warpdotsys.com/kernelsu/shiba/shiba-cp1a.260505.005.a1-efc7776-ksu-latest.zip.csig"
-  }
-}
