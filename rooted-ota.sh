@@ -595,34 +595,27 @@ for a in data.get('assets', []):
   echo "$KSU_VERSION" > ".tmp/ksud.version"
   printGreen "ksud 已下载（来自 ${ksudUrl}）"
 
-  # .ko 始终从用户指定的最新 KSU 版本下载（不从 fallback v3.2.1 下载）
-  local kmi="${KSU_KMI}"
-  if [ -n "$kmi" ]; then
-    local koTarget=".tmp/ksu_module.ko"
-    print "正在从 KernelSU v${ksuOriginalVer} 下载 ${kmi}_kernelsu.ko..."
-    curl -sLo "$koTarget" \
-      "https://github.com/tiann/KernelSU/releases/download/v${ksuOriginalVer}/${kmi}_kernelsu.ko" || {
-      printYellow "从 v${ksuOriginalVer} 下载 KMI $kmi 的 .ko 失败，将使用内置模块"
-      rm -f "$koTarget"
-    }
-  fi
+  # LKM 模式遵循 KernelSU 官方 ksud 用法：默认只传 --kmi，交给 ksud 选择内置模块。
+  # 不能按粗粒度 KMI 自动下载 release 里的 *_kernelsu.ko；它的 vermagic 可能与当前 OTA
+  # 内核 release 不一致，导致刷入后 KernelSU 显示未安装。
+  # 如需使用外部模块，请预先放置 .tmp/ksu_module.ko，后续会校验 vermagic 后再注入.
 }
 
 function extractKernelReleaseFromImage() {
-  local bootImg="$1"
-  strings -a "$bootImg" 2>/dev/null \
+  local image="$1"
+  strings -a "$image" 2>/dev/null \
     | grep -aoE '[0-9]+\.[0-9]+\.[0-9]+-android[0-9]+-[0-9]+-g[0-9a-f]+' \
     | head -1 || true
 }
 
-function validateKsuModuleMatchesBoot() {
-  local bootImg="$1" moduleKo="$2"
-  local bootRelease moduleVermagic
-  bootRelease=$(extractKernelReleaseFromImage "$bootImg")
+function validateKsuModuleMatchesImage() {
+  local image="$1" moduleKo="$2"
+  local imageRelease moduleVermagic
+  imageRelease=$(extractKernelReleaseFromImage "$image")
   moduleVermagic=$(strings -a "$moduleKo" 2>/dev/null | grep -aoE 'vermagic=[^[:cntrl:]]+' | head -1 || true)
 
-  if [ -z "$bootRelease" ]; then
-    printRed "无法从 boot.img 检测内核 release，拒绝生成 KernelSU OTA 以避免发布不可用产物"
+  if [ -z "$imageRelease" ]; then
+    printRed "无法从镜像检测内核 release，拒绝生成 KernelSU OTA 以避免发布不可用产物"
     exit 1
   fi
   if [ -z "$moduleVermagic" ]; then
@@ -630,12 +623,12 @@ function validateKsuModuleMatchesBoot() {
     exit 1
   fi
 
-  print "boot.img 内核 release: $bootRelease"
+  print "镜像内核 release: $imageRelease"
   print "KernelSU 模块 vermagic: $moduleVermagic"
 
-  if [[ "$moduleVermagic" != *"$bootRelease"* ]]; then
+  if [[ "$moduleVermagic" != *"$imageRelease"* ]]; then
     printRed "KernelSU 模块 vermagic 与 OTA 内核不匹配，拒绝生成不可启动/不可用的 KSU OTA"
-    printRed "需要为 $bootRelease 构建匹配的 kernelsu.ko，或提供匹配模块后再构建。"
+    printRed "需要为 $imageRelease 构建匹配的 kernelsu.ko，或提供匹配模块后再构建。"
     exit 1
   fi
 }
@@ -771,12 +764,12 @@ function injectKsuIntoOta() {
   downloadKsud
   downloadMagiskBoot
 
-  print "正在从 rootless OTA 中提取 boot.img..."
+  print "正在从 rootless OTA 中提取 boot/init_boot/vendor_boot 镜像..."
   .tmp/avbroot ota extract \
     --input "$rootlessOta" \
     --directory "$workDir/extracted" \
     --boot-only
-  printGreen "boot.img 提取完成"
+  printGreen "boot/init_boot/vendor_boot 镜像提取完成"
 
   local kmi="${KSU_KMI}"
   if [ -z "$kmi" ]; then
@@ -802,24 +795,32 @@ function injectKsuIntoOta() {
     print "使用已配置的 KMI: $kmi"
   fi
 
+  # KernelSU 官方 LKM 模式在 Android 13+ 修改 ramdisk，因此应 patch init_boot，
+  # 不是替换 boot 里的 kernel。boot.img 仅用于检测 KMI/内核 release。
   local bootImgPath="$PROJECT_ROOT/$workDir/extracted/boot.img"
+  local initBootImgPath="$PROJECT_ROOT/$workDir/extracted/init_boot.img"
   if [ ! -f "$bootImgPath" ]; then
     printRed "boot.img 不存在于 $bootImgPath"
+    ls -la "$PROJECT_ROOT/$workDir/extracted/" 2>/dev/null || true
+    exit 1
+  fi
+  if [ ! -f "$initBootImgPath" ]; then
+    printRed "init_boot.img 不存在于 $initBootImgPath，无法按 KernelSU LKM 模式修补"
     ls -la "$PROJECT_ROOT/$workDir/extracted/" 2>/dev/null || true
     exit 1
   fi
 
   mkdir -p "$workDir/patched"
   local ksudArgs=()
-  ksudArgs+=("-b" "$bootImgPath")
+  ksudArgs+=("-b" "$initBootImgPath")
   ksudArgs+=("--kmi" "$kmi")
   ksudArgs+=("--magiskboot" "$PROJECT_ROOT/.tmp/magiskboot")
   ksudArgs+=("-o" "$PROJECT_ROOT/$workDir/patched")
-  ksudArgs+=("--out-name" "ksu_patched_boot.img")
+  ksudArgs+=("--out-name" "ksu_patched_init_boot.img")
 
   if [ -f "$PROJECT_ROOT/.tmp/ksu_module.ko" ]; then
     print "使用外部 .ko 模块（来自请求的 KSU 版本）"
-    validateKsuModuleMatchesBoot "$bootImgPath" "$PROJECT_ROOT/.tmp/ksu_module.ko"
+    validateKsuModuleMatchesImage "$bootImgPath" "$PROJECT_ROOT/.tmp/ksu_module.ko"
     ksudArgs+=("--module" "$PROJECT_ROOT/.tmp/ksu_module.ko")
   fi
 
@@ -829,21 +830,22 @@ function injectKsuIntoOta() {
 
   "$PROJECT_ROOT/.tmp/ksud" boot-patch "${ksudArgs[@]}"
 
-  local patchedBoot
-  patchedBoot=$(find "$workDir/patched" -maxdepth 1 -type f -name "*.img" 2>/dev/null | head -1)
-  if [ -z "$patchedBoot" ]; then
-    printRed "在 $workDir/patched 中未找到修补后的 boot 镜像"
+  local patchedInitBoot
+  patchedInitBoot=$(find "$workDir/patched" -maxdepth 1 -type f -name "*.img" 2>/dev/null | head -1)
+  if [ -z "$patchedInitBoot" ]; then
+    printRed "在 $workDir/patched 中未找到修补后的 init_boot 镜像"
     ls -la "$workDir/patched/" 2>/dev/null || true
     exit 1
   fi
-  printGreen "KernelSU 修补后的 boot 镜像: $patchedBoot"
+  printGreen "KernelSU LKM 修补后的 init_boot 镜像: $patchedInitBoot"
 
-  print "正在使用预修补的 boot.img 创建签名的 KSU OTA..."
+  print "正在使用预修补的 init_boot.img 创建签名的 KSU OTA..."
   local avbrootArgs=()
   avbrootArgs+=("ota" "patch")
   avbrootArgs+=("--input" "$rootlessOta")
   avbrootArgs+=("--output" "$ksuTarget")
-  avbrootArgs+=("--prepatched" "$patchedBoot")
+  avbrootArgs+=("--rootless")
+  avbrootArgs+=("--replace" "init_boot" "$patchedInitBoot")
   avbrootArgs+=("--key-avb" "$KEY_AVB")
   avbrootArgs+=("--key-ota" "$KEY_OTA")
   avbrootArgs+=("--cert-ota" "$CERT_OTA")
