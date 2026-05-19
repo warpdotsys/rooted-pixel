@@ -995,7 +995,7 @@ function createOtaServerData() {
   downloadCusotaTool
 
   # OTA 文件存放地址（HKG Caddy HTTPS 文件服务器）
-  local storageBaseUrl="${OTA_STORAGE_URL:-https://hkg.warpdotsys.com}"
+  local storageBaseUrl="${OTA_STORAGE_URL:-https://hkcf.warpdotsys.com}"
 
   for flavor in "${!POTENTIAL_ASSETS[@]}"; do
     local assetName="${POTENTIAL_ASSETS[$flavor]}"
@@ -1057,7 +1057,7 @@ function uploadOtaServerData() {
       local sourceFile="${base_dir}/.tmp/${flavor}/$DEVICE_ID.json"
 
       # 旧逻辑只按 OTA_VERSION 判断是否跳过，会导致同版本 JSON 中的 URL/flavor
-      # 变化（例如 http://IP:8080 -> https://hkg.warpdotsys.com，ksu -> kernelsu）
+      # 变化（例如 http://IP:8080 -> https://hkcf.warpdotsys.com，ksu -> kernelsu）
       # 无法发布。这里改为比较实际 JSON 内容：内容不同就更新。
       if [[ "$SKIP_OTA_SERVER_UPLOAD" == 'true' ]] && [[ "$FORCE_OTA_SERVER_UPLOAD" != 'true' ]]; then
         printGreen "跳过 OTA 服务器更新（SKIP_OTA_SERVER_UPLOAD=true）。"
