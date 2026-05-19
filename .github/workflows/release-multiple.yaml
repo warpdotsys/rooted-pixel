@@ -30,32 +30,32 @@ permissions:
   contents: write
 
 jobs:
-  build-tokay:
-    name: "tokay (Pixel 9)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: tokay
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-tokay:
+  #   name: "tokay (Pixel 9)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: tokay
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit
 
-  build-caiman:
-    name: "caiman (Pixel 9 Pro)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: caiman
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-caiman:
+  #   name: "caiman (Pixel 9 Pro)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: caiman
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit
 
-  build-komodo:
-    name: "komodo (Pixel 9 Pro XL)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: komodo
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-komodo:
+  #   name: "komodo (Pixel 9 Pro XL)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: komodo
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit
 
   build-shiba:
     name: "shiba (Pixel 8)"
@@ -66,38 +66,38 @@ jobs:
       lenient-check: true
     secrets: inherit
 
-  build-husky:
-    name: "husky (Pixel 8 Pro)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: husky
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-husky:
+  #   name: "husky (Pixel 8 Pro)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: husky
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit
 
-  build-panther:
-    name: "panther (Pixel 7)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: panther
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-panther:
+  #   name: "panther (Pixel 7)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: panther
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit
 
-  build-cheetah:
-    name: "cheetah (Pixel 7 Pro)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: cheetah
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-cheetah:
+  #   name: "cheetah (Pixel 7 Pro)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: cheetah
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit
 
-  build-oriole:
-    name: "oriole (Pixel 6)"
-    uses: ./.github/workflows/release-single.yaml
-    with:
-      device-id: oriole
-      ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
-      lenient-check: true
-    secrets: inherit
+  # build-oriole:
+  #   name: "oriole (Pixel 6)"
+  #   uses: ./.github/workflows/release-single.yaml
+  #   with:
+  #     device-id: oriole
+  #     ksu-kmi: ${{ (github.event_name == 'workflow_dispatch' && inputs.ksu-kmi) || '' }}
+  #     lenient-check: true
+  #   secrets: inherit

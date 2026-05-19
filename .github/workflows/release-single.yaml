@@ -17,6 +17,7 @@ on:
     inputs:
       device-id:
         type: string
+        default: 'shiba'
       ksu-kmi:
         type: string
         default: ''
@@ -28,8 +29,9 @@ on:
   workflow_dispatch:
     inputs:
       device-id:
-        description: 设备 ID
-        required: true
+        description: 设备 ID（留空默认 shiba）
+        required: false
+        default: 'shiba'
       ksu-version:
         description: KernelSU 版本（留空则自动检测最新版）
         required: false
@@ -171,12 +173,15 @@ jobs:
       - name: 准备上传目录
         if: always()
         run: |
-          # 将 .tmp 中的产物复制到根目录以便 upload-artifact 正确匹配
-          for f in .tmp/shiba-cp1a*.zip; do
-            [ -f "$f" ] && cp "$f" ./
-          done
+          # 只复制本次构建实际生成的 OTA 产物，不按设备或版本写死。
+          # 默认设备为 shiba 只在输入参数阶段处理；这里必须兼容任意 DEVICE_ID / OTA_VERSION。
+          mkdir -p artifacts
+          find .tmp -maxdepth 1 -type f -name '*.zip' \
+            ! -name 'magisk-*.apk' \
+            ! -name 'custota.zip' \
+            -exec cp -v {} artifacts/ \; 2>/dev/null || true
           echo "=== 准备上传的文件 ==="
-          ls -lah shiba-cp1a*.zip 2>/dev/null || echo "无文件"
+          ls -lah artifacts/*.zip 2>/dev/null || echo "无文件"
 
       - name: 上传构建产物
         if: always()
@@ -184,6 +189,6 @@ jobs:
         with:
           name: ${{ env.DEVICE_ID }}-ota-artifacts
           path: |
-            shiba-cp1a.260505.005.a1-*.zip
+            artifacts/*.zip
           if-no-files-found: warn
           retention-days: 30
