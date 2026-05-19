@@ -1,7 +1,7 @@
 {
   "version": 2,
   "full": {
-    "location_ota": "https://hkg.warpdotsys.com/rootless/shiba/shiba-cp1a.260505.005.a1-efc7776-rootless.zip",
-    "location_csig": "https://hkg.warpdotsys.com/rootless/shiba/shiba-cp1a.260505.005.a1-efc7776-rootless.zip.csig"
+    "location_ota": "https://hkcf.warpdotsys.com/rootless/shiba/shiba-cp1a.260505.005.a1-efc7776-rootless.zip",
+    "location_csig": "https://hkcf.warpdotsys.com/rootless/shiba/shiba-cp1a.260505.005.a1-efc7776-rootless.zip.csig"
   }
 }
