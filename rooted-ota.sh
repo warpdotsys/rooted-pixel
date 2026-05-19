@@ -477,7 +477,7 @@ function patchOTAs() {
   fi
 
   for flavor in "${!POTENTIAL_ASSETS[@]}"; do
-    if [[ "$flavor" == 'ksu' ]]; then
+    if [[ "$flavor" == 'kernelsu' ]]; then
       continue
     fi
 
@@ -540,9 +540,9 @@ function patchOTAs() {
   done
 
   # KernelSU 后处理：将 KSU .ko 注入到 rootless OTA 的 boot 中
-  if [[ -n "${POTENTIAL_ASSETS['ksu']+isset}" ]]; then
+  if [[ -n "${POTENTIAL_ASSETS['kernelsu']+isset}" ]]; then
     local rootlessOta=".tmp/${POTENTIAL_ASSETS['rootless']}"
-    local ksuTarget=".tmp/${POTENTIAL_ASSETS['ksu']}"
+    local ksuTarget=".tmp/${POTENTIAL_ASSETS['kernelsu']}"
 
     if ls "$ksuTarget" >/dev/null 2>&1; then
       printGreen "文件 $ksuTarget 已存在本地，跳过修补。"
@@ -956,6 +956,13 @@ function deployOtaAssets() {
     return
   fi
 
+  # 历史版本曾使用 ksu 作为对外目录；现在统一为 kernelsu。
+  # 部署时做一次兼容迁移，避免旧产物在文件服务器上断档。
+  if [ -d "${deployDir}/ksu" ] && [ ! -e "${deployDir}/kernelsu" ]; then
+    mv "${deployDir}/ksu" "${deployDir}/kernelsu"
+    printGreen "已将旧 OTA 目录 ${deployDir}/ksu 迁移为 ${deployDir}/kernelsu"
+  fi
+
   for flavor in "${!POTENTIAL_ASSETS[@]}"; do
     local assetName="${POTENTIAL_ASSETS[$flavor]}"
     local assetPath=".tmp/${assetName}"
@@ -987,8 +994,8 @@ function deployOtaAssets() {
 function createOtaServerData() {
   downloadCusotaTool
 
-  # OTA 文件存放地址（HKG VPS nginx 文件服务器，不占用 443）
-  local storageBaseUrl="${OTA_STORAGE_URL:-http://82.47.32.130:8080}"
+  # OTA 文件存放地址（HKG Caddy HTTPS 文件服务器）
+  local storageBaseUrl="${OTA_STORAGE_URL:-https://hkg.warpdotsys.com}"
 
   for flavor in "${!POTENTIAL_ASSETS[@]}"; do
     local assetName="${POTENTIAL_ASSETS[$flavor]}"
@@ -1123,7 +1130,7 @@ function determineAssets() {
 
   # KernelSU（如果指定了版本）
   if [[ -n "$KSU_VERSION" ]]; then
-    POTENTIAL_ASSETS['ksu']="${baseName}-ksu-${KSU_VERSION}$(createAssetSuffix).zip"
+    POTENTIAL_ASSETS['kernelsu']="${baseName}-ksu-${KSU_VERSION}$(createAssetSuffix).zip"
   fi
 
   if [[ "${SKIP_ROOTLESS}" == 'true' ]]; then
