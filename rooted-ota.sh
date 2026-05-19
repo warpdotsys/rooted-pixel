@@ -608,6 +608,38 @@ for a in data.get('assets', []):
   fi
 }
 
+function extractKernelReleaseFromImage() {
+  local bootImg="$1"
+  strings -a "$bootImg" 2>/dev/null \
+    | grep -aoE '[0-9]+\.[0-9]+\.[0-9]+-android[0-9]+-[0-9]+-g[0-9a-f]+' \
+    | head -1 || true
+}
+
+function validateKsuModuleMatchesBoot() {
+  local bootImg="$1" moduleKo="$2"
+  local bootRelease moduleVermagic
+  bootRelease=$(extractKernelReleaseFromImage "$bootImg")
+  moduleVermagic=$(strings -a "$moduleKo" 2>/dev/null | grep -aoE 'vermagic=[^[:cntrl:]]+' | head -1 || true)
+
+  if [ -z "$bootRelease" ]; then
+    printRed "无法从 boot.img 检测内核 release，拒绝生成 KernelSU OTA 以避免发布不可用产物"
+    exit 1
+  fi
+  if [ -z "$moduleVermagic" ]; then
+    printRed "无法从 KernelSU 模块检测 vermagic，拒绝生成 KernelSU OTA"
+    exit 1
+  fi
+
+  print "boot.img 内核 release: $bootRelease"
+  print "KernelSU 模块 vermagic: $moduleVermagic"
+
+  if [[ "$moduleVermagic" != *"$bootRelease"* ]]; then
+    printRed "KernelSU 模块 vermagic 与 OTA 内核不匹配，拒绝生成不可启动/不可用的 KSU OTA"
+    printRed "需要为 $bootRelease 构建匹配的 kernelsu.ko，或提供匹配模块后再构建。"
+    exit 1
+  fi
+}
+
 function downloadMagiskBoot() {
   local magiskbootBin=".tmp/magiskboot"
 
@@ -787,6 +819,7 @@ function injectKsuIntoOta() {
 
   if [ -f "$PROJECT_ROOT/.tmp/ksu_module.ko" ]; then
     print "使用外部 .ko 模块（来自请求的 KSU 版本）"
+    validateKsuModuleMatchesBoot "$bootImgPath" "$PROJECT_ROOT/.tmp/ksu_module.ko"
     ksudArgs+=("--module" "$PROJECT_ROOT/.tmp/ksu_module.ko")
   fi
 
