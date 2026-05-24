@@ -24,7 +24,7 @@ jobs:
           fi
 
       - name: 创建 PR（如果有变更）
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "chore: 更新 Pixel 设备 OTA 数据库"
           title: "chore: 更新 Pixel 设备 OTA 数据库"
