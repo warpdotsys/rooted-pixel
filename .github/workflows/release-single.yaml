@@ -90,7 +90,7 @@ jobs:
 
       - name: 恢复工具缓存
         id: cache-tools-restore
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .tool-cache
           key: tool-cache-${{ runner.os }}-v1
@@ -150,7 +150,7 @@ jobs:
 
       - name: 保存工具缓存
         if: always()
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         continue-on-error: true
         with:
           path: .tool-cache
